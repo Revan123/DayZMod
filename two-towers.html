@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Две Башни</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+            color: white;
+        }
+
+        .game-container {
+            max-width: 100%;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        /* Header with game info */
+        .game-header {
+            text-align: center;
+            padding: 5px;
+            font-size: 14px;
+            color: #ffd700;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+
+        /* Players area */
+        .players-area {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            gap: 10px;
+        }
+
+        .player-panel {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 8px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .player-panel.active {
+            border-color: #ffd700;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+        }
+
+        .player-panel.enemy {
+            border-color: #ff4444;
+        }
+
+        .player-name {
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 5px;
+            text-align: center;
+        }
+
+        .player-panel.active .player-name {
+            color: #4CAF50;
+        }
+
+        .player-panel.enemy .player-name {
+            color: #ff6666;
+        }
+
+        /* Resources */
+        .resources {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 3px;
+            font-size: 10px;
+        }
+
+        .resource {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 4px;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        .resource-icon {
+            font-size: 14px;
+        }
+
+        .resource-name {
+            font-size: 8px;
+            color: #aaa;
+        }
+
+        .resource-value {
+            font-weight: bold;
+            font-size: 12px;
+        }
+
+        .resource.quarry .resource-value { color: #e67e22; }
+        .resource.magic .resource-value { color: #3498db; }
+        .resource.dungeon .resource-value { color: #27ae60; }
+
+        /* Towers visualization */
+        .battlefield {
+            flex: 1;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding: 10px;
+            min-height: 200px;
+            background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.3) 100%);
+            border-radius: 10px;
+            margin: 10px 0;
+            position: relative;
+        }
+
+        .castle {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 45%;
+        }
+
+        .castle.player {
+            align-items: flex-start;
+        }
+
+        .castle.enemy {
+            align-items: flex-end;
+        }
+
+        .towers-container {
+            display: flex;
+            gap: 5px;
+            align-items: flex-end;
+        }
+
+        .tower-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .tower {
+            width: 30px;
+            background: linear-gradient(180deg, #8B4513 0%, #654321 100%);
+            border: 2px solid #5a3d2b;
+            border-radius: 3px 3px 0 0;
+            position: relative;
+            transition: height 0.5s ease;
+            min-height: 10px;
+        }
+
+        .tower::before {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: -5px;
+            right: -5px;
+            height: 10px;
+            background: #654321;
+            clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+        }
+
+        .tower-value {
+            font-size: 10px;
+            font-weight: bold;
+            margin-bottom: 2px;
+            text-shadow: 0 0 5px black;
+        }
+
+        .wall {
+            width: 15px;
+            background: linear-gradient(180deg, #777 0%, #555 100%);
+            border: 1px solid #444;
+            min-height: 5px;
+            transition: height 0.5s ease;
+        }
+
+        .wall-value {
+            font-size: 9px;
+            color: #aaa;
+        }
+
+        .castle-label {
+            font-size: 10px;
+            margin-top: 5px;
+            color: #aaa;
+        }
+
+        /* Cards hand */
+        .hand-area {
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 10px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+
+        .hand-title {
+            font-size: 12px;
+            color: #aaa;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+
+        .cards-hand {
+            display: flex;
+            gap: 5px;
+            overflow-x: auto;
+            padding: 5px 0;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .card {
+            min-width: 70px;
+            max-width: 80px;
+            background: linear-gradient(180deg, #2c3e50 0%, #1a252f 100%);
+            border: 2px solid #34495e;
+            border-radius: 8px;
+            padding: 5px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .card:active {
+            transform: scale(0.95);
+        }
+
+        .card.playable {
+            border-color: #4CAF50;
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+        }
+
+        .card.playable:hover {
+            transform: translateY(-5px);
+        }
+
+        .card.not-playable {
+            opacity: 0.5;
+            border-color: #666;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 3px;
+        }
+
+        .card-cost {
+            font-size: 12px;
+            font-weight: bold;
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+
+        .card-cost.quarry { background: #e67e22; }
+        .card-cost.magic { background: #3498db; }
+        .card-cost.dungeon { background: #27ae60; }
+
+        .card-type-icon {
+            font-size: 14px;
+        }
+
+        .card-name {
+            font-size: 9px;
+            font-weight: bold;
+            text-align: center;
+            margin: 3px 0;
+            min-height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .card-desc {
+            font-size: 8px;
+            color: #aaa;
+            text-align: center;
+            min-height: 30px;
+        }
+
+        /* Action buttons */
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            padding: 10px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            font-size: 14px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-discard {
+            background: linear-gradient(180deg, #e74c3c 0%, #c0392b 100%);
+            color: white;
+        }
+
+        .btn-discard:active {
+            transform: scale(0.95);
+        }
+
+        .btn-new-game {
+            background: linear-gradient(180deg, #3498db 0%, #2980b9 100%);
+            color: white;
+        }
+
+        /* Messages */
+        .message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            z-index: 100;
+            display: none;
+            border: 3px solid #ffd700;
+        }
+
+        .message h2 {
+            font-size: 24px;
+            margin-bottom: 15px;
+            color: #ffd700;
+        }
+
+        .message p {
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+
+        .message.show {
+            display: block;
+            animation: popIn 0.3s ease;
+        }
+
+        @keyframes popIn {
+            from {
+                transform: translate(-50%, -50%) scale(0.5);
+                opacity: 0;
+            }
+            to {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
+        }
+
+        /* Card tooltip */
+        .selected-card-info {
+            background: rgba(0, 0, 0, 0.6);
+            padding: 8px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 5px;
+            font-size: 12px;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Animations */
+        @keyframes damage {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .damage-animation {
+            animation: damage 0.3s ease;
+        }
+
+        @keyframes build {
+            0% { transform: scaleY(1); }
+            50% { transform: scaleY(1.1); }
+            100% { transform: scaleY(1); }
+        }
+
+        .build-animation {
+            animation: build 0.3s ease;
+        }
+
+        /* Ground */
+        .ground {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 20px;
+            background: linear-gradient(180deg, #2d5a27 0%, #1a3d15 100%);
+            border-radius: 0 0 10px 10px;
+        }
+
+        /* Turn indicator */
+        .turn-indicator {
+            text-align: center;
+            padding: 5px;
+            font-size: 12px;
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        .turn-indicator.enemy-turn {
+            color: #ff6666;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="game-header">⚔️ ДВЕ БАШНИ ⚔️</div>
+        
+        <div class="turn-indicator" id="turnIndicator">Ваш ход</div>
+
+        <div class="players-area">
+            <!-- Player panel -->
+            <div class="player-panel active" id="playerPanel">
+                <div class="player-name">👤 Вы</div>
+                <div class="resources">
+                    <div class="resource quarry">
+                        <div class="resource-icon">🧱</div>
+                        <div class="resource-name">Карьер</div>
+                        <div class="resource-value" id="playerQuarry">2</div>
+                        <div class="resource-value" id="playerBricks">5</div>
+                    </div>
+                    <div class="resource magic">
+                        <div class="resource-icon">💎</div>
+                        <div class="resource-name">Магия</div>
+                        <div class="resource-value" id="playerMagic">2</div>
+                        <div class="resource-value" id="playerGems">5</div>
+                    </div>
+                    <div class="resource dungeon">
+                        <div class="resource-icon">🐉</div>
+                        <div class="resource-name">Подземелье</div>
+                        <div class="resource-value" id="playerDungeon">2</div>
+                        <div class="resource-value" id="playerBeasts">5</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Enemy panel -->
+            <div class="player-panel enemy" id="enemyPanel">
+                <div class="player-name">🤖 Противник</div>
+                <div class="resources">
+                    <div class="resource quarry">
+                        <div class="resource-icon">🧱</div>
+                        <div class="resource-name">Карьер</div>
+                        <div class="resource-value" id="enemyQuarry">2</div>
+                        <div class="resource-value" id="enemyBricks">5</div>
+                    </div>
+                    <div class="resource magic">
+                        <div class="resource-icon">💎</div>
+                        <div class="resource-name">Магия</div>
+                        <div class="resource-value" id="enemyMagic">2</div>
+                        <div class="resource-value" id="enemyGems">5</div>
+                    </div>
+                    <div class="resource dungeon">
+                        <div class="resource-icon">🐉</div>
+                        <div class="resource-name">Подземелье</div>
+                        <div class="resource-value" id="enemyDungeon">2</div>
+                        <div class="resource-value" id="enemyBeasts">5</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Battlefield -->
+        <div class="battlefield">
+            <div class="castle player">
+                <div class="towers-container">
+                    <div class="tower-wrapper">
+                        <div class="tower-value" id="playerTower1Value">30</div>
+                        <div class="tower" id="playerTower1" style="height: 60px;"></div>
+                    </div>
+                    <div class="tower-wrapper">
+                        <div class="tower-value" id="playerTower2Value">30</div>
+                        <div class="tower" id="playerTower2" style="height: 60px;"></div>
+                    </div>
+                    <div class="tower-wrapper">
+                        <div class="wall-value" id="playerWallValue">10</div>
+                        <div class="wall" id="playerWall" style="height: 20px;"></div>
+                    </div>
+                </div>
+                <div class="castle-label">Ваш замок</div>
+            </div>
+
+            <div class="castle enemy">
+                <div class="towers-container">
+                    <div class="tower-wrapper">
+                        <div class="wall-value" id="enemyWallValue">10</div>
+                        <div class="wall" id="enemyWall" style="height: 20px;"></div>
+                    </div>
+                    <div class="tower-wrapper">
+                        <div class="tower-value" id="enemyTower1Value">30</div>
+                        <div class="tower" id="enemyTower1" style="height: 60px;"></div>
+                    </div>
+                    <div class="tower-wrapper">
+                        <div class="tower-value" id="enemyTower2Value">30</div>
+                        <div class="tower" id="enemyTower2" style="height: 60px;"></div>
+                    </div>
+                </div>
+                <div class="castle-label">Замок врага</div>
+            </div>
+            <div class="ground"></div>
+        </div>
+
+        <!-- Hand area -->
+        <div class="hand-area">
+            <div class="selected-card-info" id="selectedCardInfo">Выберите карту для игры</div>
+            <div class="hand-title">Ваши карты (нажмите чтобы сыграть)</div>
+            <div class="cards-hand" id="cardsHand"></div>
+        </div>
+
+        <div class="action-buttons">
+            <button class="btn btn-discard" id="discardBtn">🗑️ Сбросить</button>
+            <button class="btn btn-new-game" id="newGameBtn">🔄 Новая игра</button>
+        </div>
+    </div>
+
+    <!-- Win/Lose message -->
+    <div class="message" id="gameMessage">
+        <h2 id="messageTitle">Победа!</h2>
+        <p id="messageText">Вы выиграли!</p>
+        <button class="btn btn-new-game" onclick="startNewGame()">Новая игра</button>
+    </div>
+
+    <script>
+        // Card definitions
+        const CARDS = [
+            // Quarry cards (bricks)
+            { id: 1, name: "Кирпичная кладка", type: "quarry", cost: 1, desc: "+3 к башне", effect: (p, e) => { p.tower1 += 3; } },
+            { id: 2, name: "Фундамент", type: "quarry", cost: 2, desc: "+5 к башне", effect: (p, e) => { p.tower1 += 5; } },
+            { id: 3, name: "Стена", type: "quarry", cost: 1, desc: "+3 к стене", effect: (p, e) => { p.wall += 3; } },
+            { id: 4, name: "Крепость", type: "quarry", cost: 3, desc: "+5 к стене", effect: (p, e) => { p.wall += 5; } },
+            { id: 5, name: "Каменщики", type: "quarry", cost: 2, desc: "+1 карьер", effect: (p, e) => { p.quarry += 1; } },
+            { id: 6, name: "Школа камня", type: "quarry", cost: 5, desc: "+2 карьер", effect: (p, e) => { p.quarry += 2; } },
+            { id: 7, name: "Большая стройка", type: "quarry", cost: 4, desc: "+6 башня, +3 стена", effect: (p, e) => { p.tower1 += 6; p.wall += 3; } },
+            { id: 8, name: "Катапульта", type: "quarry", cost: 3, desc: "-4 к башне врага", effect: (p, e) => { e.tower1 -= 4; } },
+            { id: 9, name: "Осада", type: "quarry", cost: 5, desc: "-6 к стене врага", effect: (p, e) => { e.wall -= 6; } },
+            { id: 10, name: "Укрепление", type: "quarry", cost: 2, desc: "+4 к обеим башням", effect: (p, e) => { p.tower1 += 4; p.tower2 += 4; } },
+            { id: 11, name: "Таран", type: "quarry", cost: 4, desc: "-5 к башне, -3 к стене врага", effect: (p, e) => { e.tower1 -= 5; e.wall -= 3; } },
+            { id: 12, name: "Древний камень", type: "quarry", cost: 6, desc: "+8 к башне", effect: (p, e) => { p.tower1 += 8; } },
+            
+            // Magic cards (gems)
+            { id: 13, name: "Магический щит", type: "magic", cost: 2, desc: "+5 к стене", effect: (p, e) => { p.wall += 5; } },
+            { id: 14, name: "Огненный шар", type: "magic", cost: 3, desc: "-5 к башне врага", effect: (p, e) => { e.tower1 -= 5; } },
+            { id: 15, name: "Кристалл силы", type: "magic", cost: 2, desc: "+1 магия", effect: (p, e) => { p.magic += 1; } },
+            { id: 16, name: "Академия магии", type: "magic", cost: 5, desc: "+2 магия", effect: (p, e) => { p.magic += 2; } },
+            { id: 17, name: "Молния", type: "magic", cost: 4, desc: "-7 к башне врага (сквозь стену)", effect: (p, e) => { e.tower1 -= 7; } },
+            { id: 18, name: "Левитация", type: "magic", cost: 3, desc: "+6 к башне", effect: (p, e) => { p.tower1 += 6; } },
+            { id: 19, name: "Исцеление", type: "magic", cost: 4, desc: "+7 к обеим башням", effect: (p, e) => { p.tower1 += 7; p.tower2 += 7; } },
+            { id: 20, name: "Разрушение", type: "magic", cost: 6, desc: "-8 к башне, -4 к стене врага", effect: (p, e) => { e.tower1 -= 8; e.wall -= 4; } },
+            { id: 21, name: "Призыв камней", type: "magic", cost: 3, desc: "+5 кирпичей", effect: (p, e) => { p.bricks += 5; } },
+            { id: 22, name: "Портал", type: "magic", cost: 5, desc: "+10 к башне", effect: (p, e) => { p.tower1 += 10; } },
+            { id: 23, name: "Метеор", type: "magic", cost: 7, desc: "-10 к башне врага", effect: (p, e) => { e.tower1 -= 10; } },
+            { id: 24, name: "Чародейство", type: "magic", cost: 4, desc: "+4 всем ресурсам", effect: (p, e) => { p.bricks += 4; p.gems += 4; p.beasts += 4; } },
+            
+            // Dungeon cards (beasts)
+            { id: 25, name: "Гоблины", type: "dungeon", cost: 2, desc: "-3 к башне врага", effect: (p, e) => { dealDamage(e, 3); } },
+            { id: 26, name: "Орки", type: "dungeon", cost: 3, desc: "-5 к башне/стене врага", effect: (p, e) => { dealDamage(e, 5); } },
+            { id: 27, name: "Тролль", type: "dungeon", cost: 4, desc: "-7 к башне/стене врага", effect: (p, e) => { dealDamage(e, 7); } },
+            { id: 28, name: "Драконы", type: "dungeon", cost: 6, desc: "-10 к башне/стене врага", effect: (p, e) => { dealDamage(e, 10); } },
+            { id: 29, name: "Подземелье", type: "dungeon", cost: 2, desc: "+1 подземелье", effect: (p, e) => { p.dungeon += 1; } },
+            { id: 30, name: "Логово монстров", type: "dungeon", cost: 5, desc: "+2 подземелье", effect: (p, e) => { p.dungeon += 2; } },
+            { id: 31, name: "Вампир", type: "dungeon", cost: 5, desc: "-5 врагу, +5 себе", effect: (p, e) => { dealDamage(e, 5); p.tower1 += 5; } },
+            { id: 32, name: "Полчища", type: "dungeon", cost: 4, desc: "-6 ко всем ресурсам врага", effect: (p, e) => { e.bricks = Math.max(0, e.bricks - 6); e.gems = Math.max(0, e.gems - 6); e.beasts = Math.max(0, e.beasts - 6); } },
+            { id: 33, name: "Некромант", type: "dungeon", cost: 5, desc: "-5 к обеим башням врага", effect: (p, e) => { e.tower1 -= 5; e.tower2 -= 5; } },
+            { id: 34, name: "Берсерк", type: "dungeon", cost: 3, desc: "-4 башня/стена обоим", effect: (p, e) => { dealDamage(e, 4); dealDamage(p, 4); } },
+            { id: 35, name: "Вождь орков", type: "dungeon", cost: 6, desc: "-8 к башне/стене врага, +2 зверей", effect: (p, e) => { dealDamage(e, 8); p.beasts += 2; } },
+            { id: 36, name: "Гидра", type: "dungeon", cost: 7, desc: "-12 к башне/стене врага", effect: (p, e) => { dealDamage(e, 12); } },
+        ];
+
+        // Game state
+        let gameState = {
+            player: {
+                tower1: 30,
+                tower2: 30,
+                wall: 10,
+                quarry: 2,
+                magic: 2,
+                dungeon: 2,
+                bricks: 5,
+                gems: 5,
+                beasts: 5,
+                hand: []
+            },
+            enemy: {
+                tower1: 30,
+                tower2: 30,
+                wall: 10,
+                quarry: 2,
+                magic: 2,
+                dungeon: 2,
+                bricks: 5,
+                gems: 5,
+                beasts: 5,
+                hand: []
+            },
+            isPlayerTurn: true,
+            selectedCard: null,
+            gameOver: false
+        };
+
+        // Deal damage to wall first, then tower
+        function dealDamage(target, amount) {
+            if (target.wall >= amount) {
+                target.wall -= amount;
+            } else {
+                amount -= target.wall;
+                target.wall = 0;
+                target.tower1 -= amount;
+            }
+        }
+
+        // Get random card
+        function getRandomCard() {
+            return {...CARDS[Math.floor(Math.random() * CARDS.length)]};
+        }
+
+        // Draw cards to hand
+        function drawCards(player, count) {
+            while (player.hand.length < count) {
+                player.hand.push(getRandomCard());
+            }
+        }
+
+        // Check if card is playable
+        function canPlayCard(card, player) {
+            switch(card.type) {
+                case 'quarry': return player.bricks >= card.cost;
+                case 'magic': return player.gems >= card.cost;
+                case 'dungeon': return player.beasts >= card.cost;
+            }
+            return false;
+        }
+
+        // Pay card cost
+        function payCardCost(card, player) {
+            switch(card.type) {
+                case 'quarry': player.bricks -= card.cost; break;
+                case 'magic': player.gems -= card.cost; break;
+                case 'dungeon': player.beasts -= card.cost; break;
+            }
+        }
+
+        // Add resources at turn start
+        function addResources(player) {
+            player.bricks += player.quarry;
+            player.gems += player.magic;
+            player.beasts += player.dungeon;
+        }
+
+        // Update UI
+        function updateUI() {
+            const p = gameState.player;
+            const e = gameState.enemy;
+
+            // Player resources
+            document.getElementById('playerQuarry').textContent = p.quarry;
+            document.getElementById('playerBricks').textContent = p.bricks;
+            document.getElementById('playerMagic').textContent = p.magic;
+            document.getElementById('playerGems').textContent = p.gems;
+            document.getElementById('playerDungeon').textContent = p.dungeon;
+            document.getElementById('playerBeasts').textContent = p.beasts;
+
+            // Enemy resources
+            document.getElementById('enemyQuarry').textContent = e.quarry;
+            document.getElementById('enemyBricks').textContent = e.bricks;
+            document.getElementById('enemyMagic').textContent = e.magic;
+            document.getElementById('enemyGems').textContent = e.gems;
+            document.getElementById('enemyDungeon').textContent = e.dungeon;
+            document.getElementById('enemyBeasts').textContent = e.beasts;
+
+            // Towers
+            const maxHeight = 150;
+            const scale = maxHeight / 100;
+
+            document.getElementById('playerTower1').style.height = Math.max(10, Math.min(p.tower1, 100) * scale) + 'px';
+            document.getElementById('playerTower1Value').textContent = Math.max(0, p.tower1);
+            document.getElementById('playerTower2').style.height = Math.max(10, Math.min(p.tower2, 100) * scale) + 'px';
+            document.getElementById('playerTower2Value').textContent = Math.max(0, p.tower2);
+            document.getElementById('playerWall').style.height = Math.max(5, Math.min(p.wall, 100) * scale * 0.5) + 'px';
+            document.getElementById('playerWallValue').textContent = Math.max(0, p.wall);
+
+            document.getElementById('enemyTower1').style.height = Math.max(10, Math.min(e.tower1, 100) * scale) + 'px';
+            document.getElementById('enemyTower1Value').textContent = Math.max(0, e.tower1);
+            document.getElementById('enemyTower2').style.height = Math.max(10, Math.min(e.tower2, 100) * scale) + 'px';
+            document.getElementById('enemyTower2Value').textContent = Math.max(0, e.tower2);
+            document.getElementById('enemyWall').style.height = Math.max(5, Math.min(e.wall, 100) * scale * 0.5) + 'px';
+            document.getElementById('enemyWallValue').textContent = Math.max(0, e.wall);
+
+            // Turn indicator
+            const turnIndicator = document.getElementById('turnIndicator');
+            if (gameState.isPlayerTurn) {
+                turnIndicator.textContent = 'Ваш ход';
+                turnIndicator.className = 'turn-indicator';
+            } else {
+                turnIndicator.textContent = 'Ход противника...';
+                turnIndicator.className = 'turn-indicator enemy-turn';
+            }
+
+            // Render hand
+            renderHand();
+        }
+
+        // Render player's hand
+        function renderHand() {
+            const hand = document.getElementById('cardsHand');
+            hand.innerHTML = '';
+
+            gameState.player.hand.forEach((card, index) => {
+                const playable = canPlayCard(card, gameState.player) && gameState.isPlayerTurn && !gameState.gameOver;
+                const cardEl = document.createElement('div');
+                cardEl.className = `card ${playable ? 'playable' : 'not-playable'}`;
+                cardEl.innerHTML = `
+                    <div class="card-header">
+                        <span class="card-cost ${card.type}">${card.cost}</span>
+                        <span class="card-type-icon">${card.type === 'quarry' ? '🧱' : card.type === 'magic' ? '💎' : '🐉'}</span>
+                    </div>
+                    <div class="card-name">${card.name}</div>
+                    <div class="card-desc">${card.desc}</div>
+                `;
+
+                cardEl.onclick = () => selectCard(index);
+                hand.appendChild(cardEl);
+            });
+        }
+
+        // Select card
+        function selectCard(index) {
+            if (!gameState.isPlayerTurn || gameState.gameOver) return;
+
+            const card = gameState.player.hand[index];
+            gameState.selectedCard = index;
+
+            const info = document.getElementById('selectedCardInfo');
+            if (canPlayCard(card, gameState.player)) {
+                info.innerHTML = `<strong>${card.name}</strong>: ${card.desc} - Нажмите снова чтобы сыграть`;
+                
+                // Play card on second click
+                if (gameState.lastSelectedCard === index) {
+                    playCard(index);
+                    gameState.lastSelectedCard = null;
+                } else {
+                    gameState.lastSelectedCard = index;
+                }
+            } else {
+                info.innerHTML = `<strong>${card.name}</strong>: Недостаточно ресурсов!`;
+                gameState.lastSelectedCard = null;
+            }
+        }
+
+        // Play a card
+        function playCard(index) {
+            if (!gameState.isPlayerTurn || gameState.gameOver) return;
+
+            const card = gameState.player.hand[index];
+            if (!canPlayCard(card, gameState.player)) return;
+
+            payCardCost(card, gameState.player);
+            card.effect(gameState.player, gameState.enemy);
+            gameState.player.hand.splice(index, 1);
+            drawCards(gameState.player, 6);
+
+            document.getElementById('selectedCardInfo').textContent = `Сыграна: ${card.name}`;
+
+            // Clamp values
+            clampValues();
+            updateUI();
+            checkWinCondition();
+
+            if (!gameState.gameOver) {
+                endPlayerTurn();
+            }
+        }
+
+        // Discard selected card
+        function discardCard() {
+            if (!gameState.isPlayerTurn || gameState.gameOver || gameState.selectedCard === null) {
+                if (gameState.selectedCard === null) {
+                    document.getElementById('selectedCardInfo').textContent = 'Сначала выберите карту для сброса';
+                }
+                return;
+            }
+
+            gameState.player.hand.splice(gameState.selectedCard, 1);
+            drawCards(gameState.player, 6);
+            gameState.selectedCard = null;
+            gameState.lastSelectedCard = null;
+
+            document.getElementById('selectedCardInfo').textContent = 'Карта сброшена';
+            updateUI();
+            endPlayerTurn();
+        }
+
+        // End player turn
+        function endPlayerTurn() {
+            gameState.isPlayerTurn = false;
+            gameState.selectedCard = null;
+            gameState.lastSelectedCard = null;
+            updateUI();
+
+            setTimeout(() => {
+                enemyTurn();
+            }, 1000);
+        }
+
+        // Enemy AI turn
+        function enemyTurn() {
+            if (gameState.gameOver) return;
+
+            addResources(gameState.enemy);
+            drawCards(gameState.enemy, 6);
+
+            // Simple AI: play the highest cost playable card
+            let bestCard = null;
+            let bestIndex = -1;
+            let bestScore = -1;
+
+            gameState.enemy.hand.forEach((card, index) => {
+                if (canPlayCard(card, gameState.enemy)) {
+                    // Score cards based on situation
+                    let score = card.cost;
+                    
+                    // Prefer attack if enemy towers are low
+                    if (gameState.player.tower1 <= 20 || gameState.player.tower2 <= 20) {
+                        if (card.desc.includes('врага') || card.desc.includes('башне врага')) {
+                            score += 5;
+                        }
+                    }
+                    
+                    // Prefer defense if own towers are low
+                    if (gameState.enemy.tower1 <= 20 || gameState.enemy.tower2 <= 20) {
+                        if (card.desc.includes('к башне') && !card.desc.includes('врага')) {
+                            score += 5;
+                        }
+                    }
+
+                    // Prefer building if close to winning
+                    if (gameState.enemy.tower1 >= 80 || gameState.enemy.tower2 >= 80) {
+                        if (card.desc.includes('к башне') && !card.desc.includes('врага')) {
+                            score += 10;
+                        }
+                    }
+
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestCard = card;
+                        bestIndex = index;
+                    }
+                }
+            });
+
+            if (bestCard) {
+                payCardCost(bestCard, gameState.enemy);
+                bestCard.effect(gameState.enemy, gameState.player);
+                gameState.enemy.hand.splice(bestIndex, 1);
+                document.getElementById('selectedCardInfo').textContent = `Противник сыграл: ${bestCard.name}`;
+            } else {
+                // Discard random card
+                const randomIndex = Math.floor(Math.random() * gameState.enemy.hand.length);
+                gameState.enemy.hand.splice(randomIndex, 1);
+                document.getElementById('selectedCardInfo').textContent = 'Противник сбросил карту';
+            }
+
+            clampValues();
+            updateUI();
+            checkWinCondition();
+
+            if (!gameState.gameOver) {
+                setTimeout(() => {
+                    startPlayerTurn();
+                }, 1000);
+            }
+        }
+
+        // Start player turn
+        function startPlayerTurn() {
+            addResources(gameState.player);
+            drawCards(gameState.player, 6);
+            gameState.isPlayerTurn = true;
+            clampValues();
+            updateUI();
+            document.getElementById('selectedCardInfo').textContent = 'Выберите карту для игры';
+        }
+
+        // Clamp values to valid ranges
+        function clampValues() {
+            [gameState.player, gameState.enemy].forEach(p => {
+                p.tower1 = Math.max(0, p.tower1);
+                p.tower2 = Math.max(0, p.tower2);
+                p.wall = Math.max(0, p.wall);
+                p.bricks = Math.max(0, p.bricks);
+                p.gems = Math.max(0, p.gems);
+                p.beasts = Math.max(0, p.beasts);
+            });
+        }
+
+        // Check win condition
+        function checkWinCondition() {
+            const p = gameState.player;
+            const e = gameState.enemy;
+
+            let winner = null;
+            let message = '';
+
+            // Player wins by building tower to 100
+            if (p.tower1 >= 100 || p.tower2 >= 100) {
+                winner = 'player';
+                message = 'Вы построили башню до 100!';
+            }
+            // Enemy wins by building tower to 100
+            else if (e.tower1 >= 100 || e.tower2 >= 100) {
+                winner = 'enemy';
+                message = 'Противник построил башню до 100!';
+            }
+            // Player wins by destroying enemy towers
+            else if (e.tower1 <= 0 && e.tower2 <= 0) {
+                winner = 'player';
+                message = 'Вы разрушили обе башни врага!';
+            }
+            // Enemy wins by destroying player towers
+            else if (p.tower1 <= 0 && p.tower2 <= 0) {
+                winner = 'enemy';
+                message = 'Противник разрушил ваши башни!';
+            }
+
+            if (winner) {
+                gameState.gameOver = true;
+                showGameEndMessage(winner === 'player', message);
+            }
+        }
+
+        // Show game end message
+        function showGameEndMessage(isWin, message) {
+            const messageEl = document.getElementById('gameMessage');
+            const title = document.getElementById('messageTitle');
+            const text = document.getElementById('messageText');
+
+            title.textContent = isWin ? '🏆 Победа!' : '💀 Поражение';
+            title.style.color = isWin ? '#4CAF50' : '#f44336';
+            text.textContent = message;
+            messageEl.classList.add('show');
+        }
+
+        // Start new game
+        function startNewGame() {
+            gameState = {
+                player: {
+                    tower1: 30,
+                    tower2: 30,
+                    wall: 10,
+                    quarry: 2,
+                    magic: 2,
+                    dungeon: 2,
+                    bricks: 5,
+                    gems: 5,
+                    beasts: 5,
+                    hand: []
+                },
+                enemy: {
+                    tower1: 30,
+                    tower2: 30,
+                    wall: 10,
+                    quarry: 2,
+                    magic: 2,
+                    dungeon: 2,
+                    bricks: 5,
+                    gems: 5,
+                    beasts: 5,
+                    hand: []
+                },
+                isPlayerTurn: true,
+                selectedCard: null,
+                lastSelectedCard: null,
+                gameOver: false
+            };
+
+            drawCards(gameState.player, 6);
+            drawCards(gameState.enemy, 6);
+
+            document.getElementById('gameMessage').classList.remove('show');
+            document.getElementById('selectedCardInfo').textContent = 'Выберите карту для игры';
+            updateUI();
+        }
+
+        // Event listeners
+        document.getElementById('discardBtn').onclick = discardCard;
+        document.getElementById('newGameBtn').onclick = startNewGame;
+
+        // Initialize game
+        startNewGame();
+    </script>
+</body>
+</html>
