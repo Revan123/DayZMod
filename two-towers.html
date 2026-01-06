@@ -1,0 +1,1413 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+    <meta name="theme-color" content="#0b1020" />
+    <title>Две башни — HTML5 (офлайн)</title>
+    <style>
+      :root{
+        --bg:#070a12;
+        --panel:#0b1020;
+        --panel2:#0e1630;
+        --text:#e9eefc;
+        --muted:#9aa8d4;
+        --accent:#7aa2ff;
+        --good:#5ee1a7;
+        --bad:#ff6b6b;
+        --warn:#ffd166;
+        --shadow: 0 10px 30px rgba(0,0,0,.45);
+        --radius: 16px;
+        --radius2: 12px;
+      }
+
+      *{ box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+      html,body{ height:100%; }
+      body{
+        margin:0;
+        background: radial-gradient(1000px 600px at 30% 10%, #121a3a 0%, var(--bg) 55%, #05070f 100%);
+        color:var(--text);
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Liberation Sans", sans-serif;
+        overflow:hidden;
+      }
+
+      button{ font:inherit; color:inherit; }
+
+      .app{
+        height:100%;
+        display:flex;
+        flex-direction:column;
+        padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+        gap:10px;
+      }
+
+      .topbar{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:10px;
+      }
+
+      .title{
+        display:flex;
+        flex-direction:column;
+        line-height:1.15;
+      }
+      .title .h{ font-weight:800; letter-spacing:.2px; }
+      .title .s{ color:var(--muted); font-size:12px; }
+
+      .toolbar{
+        display:flex;
+        gap:8px;
+        align-items:center;
+      }
+
+      .chip{
+        background: rgba(255,255,255,.06);
+        border:1px solid rgba(255,255,255,.10);
+        border-radius:999px;
+        padding:8px 10px;
+        display:flex;
+        align-items:center;
+        gap:8px;
+        box-shadow: var(--shadow);
+        user-select:none;
+      }
+      .chip b{ font-variant-numeric: tabular-nums; }
+      .chip small{ color:var(--muted); }
+
+      .btn{
+        background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.06));
+        border:1px solid rgba(255,255,255,.12);
+        border-radius: 12px;
+        padding:10px 12px;
+        box-shadow: var(--shadow);
+        cursor:pointer;
+        user-select:none;
+        touch-action: manipulation;
+      }
+      .btn:active{ transform: translateY(1px); }
+      .btn.primary{
+        border-color: rgba(122,162,255,.55);
+        background: linear-gradient(180deg, rgba(122,162,255,.22), rgba(122,162,255,.12));
+      }
+      .btn.danger{
+        border-color: rgba(255,107,107,.55);
+        background: linear-gradient(180deg, rgba(255,107,107,.22), rgba(255,107,107,.12));
+      }
+      .btn:disabled{
+        opacity:.55;
+        cursor:not-allowed;
+      }
+
+      .board{
+        flex:1;
+        display:grid;
+        grid-template-rows: 1fr auto 1fr;
+        gap:10px;
+        min-height:0;
+      }
+
+      .lane{
+        background: rgba(255,255,255,.04);
+        border:1px solid rgba(255,255,255,.09);
+        border-radius: var(--radius);
+        padding:10px;
+        box-shadow: var(--shadow);
+        display:grid;
+        grid-template-columns: 1fr 1fr;
+        gap:10px;
+        min-height:0;
+      }
+
+      .center{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:10px;
+      }
+
+      .status{
+        display:flex;
+        flex-wrap:wrap;
+        gap:8px;
+        align-items:center;
+      }
+
+      .status .pill{
+        background: rgba(255,255,255,.06);
+        border:1px solid rgba(255,255,255,.10);
+        border-radius: 999px;
+        padding:6px 10px;
+        font-size:12px;
+        color: var(--muted);
+      }
+      .status .pill strong{
+        color: var(--text);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .tower{
+        position:relative;
+        border-radius: 16px;
+        background:
+          linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.03)),
+          radial-gradient(700px 260px at 40% 10%, rgba(122,162,255,.12), transparent 60%);
+        border:1px solid rgba(255,255,255,.12);
+        box-shadow: var(--shadow);
+        padding:12px;
+        display:flex;
+        flex-direction:column;
+        gap:10px;
+        min-height: 128px;
+        justify-content:space-between;
+        overflow:hidden;
+      }
+
+      .tower.enemy{
+        background:
+          linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.03)),
+          radial-gradient(700px 260px at 40% 10%, rgba(255,107,107,.13), transparent 60%);
+      }
+
+      .tower.dead{
+        opacity: .55;
+        filter: grayscale(.35);
+      }
+
+      .tower .name{
+        display:flex;
+        justify-content:space-between;
+        gap:10px;
+        align-items:flex-start;
+      }
+      .tower .name .side{
+        font-weight:800;
+        letter-spacing:.2px;
+      }
+      .tower .name .tag{
+        color:var(--muted);
+        font-size:12px;
+      }
+
+      .bar{
+        height: 12px;
+        background: rgba(255,255,255,.08);
+        border:1px solid rgba(255,255,255,.10);
+        border-radius: 999px;
+        overflow:hidden;
+      }
+      .bar > i{
+        display:block;
+        height:100%;
+        width:50%;
+        background: linear-gradient(90deg, rgba(94,225,167,.95), rgba(122,162,255,.92));
+      }
+      .tower.enemy .bar > i{
+        background: linear-gradient(90deg, rgba(255,107,107,.95), rgba(255,209,102,.90));
+      }
+      .hpRow{
+        display:flex;
+        justify-content:space-between;
+        font-variant-numeric: tabular-nums;
+        color: var(--muted);
+        font-size:12px;
+      }
+      .hpRow b{ color: var(--text); }
+
+      .shield{
+        display:flex;
+        gap:6px;
+        align-items:center;
+        font-size:12px;
+        color: var(--muted);
+      }
+      .shield .dot{
+        width:10px;height:10px;border-radius:50%;
+        background: rgba(122,162,255,.85);
+        box-shadow: 0 0 0 4px rgba(122,162,255,.12);
+      }
+
+      .towerBtn{
+        width:100%;
+        text-align:left;
+        border:0;
+        background: transparent;
+        padding:0;
+        cursor:pointer;
+        user-select:none;
+        touch-action: manipulation;
+      }
+      .towerBtn:disabled{ cursor:not-allowed; }
+
+      .tower.selected{
+        outline: 2px solid rgba(122,162,255,.75);
+        outline-offset: 2px;
+      }
+      .tower.enemy.selected{
+        outline: 2px solid rgba(255,209,102,.85);
+      }
+
+      .hand{
+        background: rgba(255,255,255,.04);
+        border:1px solid rgba(255,255,255,.09);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding:10px;
+        display:flex;
+        flex-direction:column;
+        gap:10px;
+        min-height: 170px;
+      }
+
+      .handTop{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:10px;
+      }
+      .hint{
+        color: var(--muted);
+        font-size:12px;
+        line-height:1.25;
+      }
+
+      .cards{
+        display:flex;
+        gap:10px;
+        overflow:auto;
+        padding-bottom:6px;
+        scroll-snap-type: x mandatory;
+      }
+      .cards::-webkit-scrollbar{ height:10px; }
+      .cards::-webkit-scrollbar-thumb{ background: rgba(255,255,255,.12); border-radius: 999px; }
+      .cards::-webkit-scrollbar-track{ background: rgba(255,255,255,.04); border-radius: 999px; }
+
+      .card{
+        flex: 0 0 160px;
+        scroll-snap-align: start;
+        border-radius: 16px;
+        background: linear-gradient(180deg, rgba(255,255,255,.11), rgba(255,255,255,.04));
+        border:1px solid rgba(255,255,255,.12);
+        box-shadow: var(--shadow);
+        padding:10px;
+        display:flex;
+        flex-direction:column;
+        gap:8px;
+        min-height: 120px;
+        cursor:pointer;
+        user-select:none;
+        touch-action: manipulation;
+      }
+      .card:active{ transform: translateY(1px); }
+      .card.selected{
+        outline: 2px solid rgba(122,162,255,.85);
+        outline-offset: 2px;
+      }
+      .card.disabled{
+        opacity:.55;
+        cursor:not-allowed;
+      }
+      .card .row{
+        display:flex;
+        justify-content:space-between;
+        align-items:flex-start;
+        gap:10px;
+      }
+      .card .name{
+        font-weight:800;
+        letter-spacing:.2px;
+      }
+      .card .cost{
+        font-variant-numeric: tabular-nums;
+        font-weight:900;
+        padding:4px 8px;
+        border-radius: 999px;
+        background: rgba(122,162,255,.16);
+        border:1px solid rgba(122,162,255,.24);
+      }
+      .card .type{
+        color: var(--muted);
+        font-size:12px;
+      }
+      .card .desc{
+        color: var(--text);
+        font-size:12px;
+        line-height:1.25;
+      }
+
+      .log{
+        background: rgba(255,255,255,.04);
+        border:1px solid rgba(255,255,255,.09);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding:10px;
+        overflow:auto;
+        max-height: 170px;
+        min-height: 110px;
+      }
+      .log .line{
+        font-size:12px;
+        color: var(--muted);
+        line-height:1.35;
+        padding:4px 0;
+        border-bottom:1px dashed rgba(255,255,255,.08);
+      }
+      .log .line:last-child{ border-bottom:0; }
+      .log .line b{ color: var(--text); }
+      .log .good{ color: rgba(94,225,167,.95); }
+      .log .bad{ color: rgba(255,107,107,.95); }
+      .log .warn{ color: rgba(255,209,102,.95); }
+
+      .modalBackdrop{
+        position:fixed; inset:0;
+        background: rgba(0,0,0,.55);
+        display:none;
+        align-items:flex-end;
+        justify-content:center;
+        padding: 14px;
+      }
+      .modalBackdrop.show{ display:flex; }
+      .modal{
+        width: min(720px, 100%);
+        background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.05));
+        border:1px solid rgba(255,255,255,.14);
+        border-radius: 18px;
+        box-shadow: var(--shadow);
+        padding: 14px;
+      }
+      .modal h2{
+        margin:0 0 8px;
+        font-size:16px;
+      }
+      .modal p{
+        margin:0 0 8px;
+        color: var(--muted);
+        font-size:13px;
+        line-height:1.35;
+      }
+      .modal ul{
+        margin: 0 0 10px;
+        padding-left: 18px;
+        color: var(--muted);
+        font-size:13px;
+        line-height:1.35;
+      }
+      .modal .grid{
+        display:grid;
+        grid-template-columns: 1fr 1fr;
+        gap:10px;
+      }
+      .modal .row2{
+        display:flex;
+        gap:8px;
+        align-items:center;
+        justify-content:flex-end;
+        flex-wrap:wrap;
+      }
+      .field{
+        background: rgba(0,0,0,.18);
+        border:1px solid rgba(255,255,255,.12);
+        border-radius: 14px;
+        padding:10px;
+      }
+      .field label{
+        display:block;
+        color: var(--muted);
+        font-size:12px;
+        margin-bottom:6px;
+      }
+      .field input[type="range"]{ width:100%; }
+      .field .val{
+        display:flex;
+        justify-content:space-between;
+        color: var(--muted);
+        font-size:12px;
+        margin-top:6px;
+      }
+
+      @media (max-height: 720px){
+        .log{ max-height: 140px; }
+        .hand{ min-height: 160px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <div class="topbar">
+        <div class="title">
+          <div class="h">Две башни</div>
+          <div class="s">Офлайн HTML5 • тач‑управление • один файл</div>
+        </div>
+        <div class="toolbar">
+          <div class="chip" title="Энергия на ход (восстанавливается в начале хода)">
+            <small>Энергия</small> <b id="uiEnergy">0/0</b>
+          </div>
+          <button class="btn" id="btnHelp">Правила</button>
+          <button class="btn primary" id="btnNew">Новая игра</button>
+        </div>
+      </div>
+
+      <div class="board">
+        <div class="lane" aria-label="Поле противника">
+          <button class="towerBtn" id="enemyTower0Btn" aria-label="Вражеская башня A"></button>
+          <button class="towerBtn" id="enemyTower1Btn" aria-label="Вражеская башня B"></button>
+        </div>
+
+        <div class="center">
+          <div class="status">
+            <div class="pill">Ход: <strong id="uiTurn">—</strong></div>
+            <div class="pill">Колода: <strong id="uiDeck">0</strong></div>
+            <div class="pill">Сброс: <strong id="uiDiscard">0</strong></div>
+            <div class="pill">Рука: <strong id="uiHand">0</strong></div>
+          </div>
+          <div class="toolbar">
+            <button class="btn" id="btnEndTurn">Закончить ход</button>
+            <button class="btn danger" id="btnConcede">Сдаться</button>
+          </div>
+        </div>
+
+        <div class="lane" aria-label="Ваше поле">
+          <button class="towerBtn" id="playerTower0Btn" aria-label="Ваша башня A"></button>
+          <button class="towerBtn" id="playerTower1Btn" aria-label="Ваша башня B"></button>
+        </div>
+      </div>
+
+      <div class="hand">
+        <div class="handTop">
+          <div class="hint" id="uiHint">
+            Выберите карту, затем нажмите на цель (башню). Некоторые карты применяются без цели.
+          </div>
+          <div class="chip">
+            <small>Сложность ИИ</small> <b id="uiAiLevel">2</b>
+          </div>
+        </div>
+        <div class="cards" id="cards"></div>
+      </div>
+
+      <div class="log" id="log" aria-label="Журнал событий"></div>
+    </div>
+
+    <div class="modalBackdrop" id="modalBackdrop" role="dialog" aria-modal="true">
+      <div class="modal">
+        <h2>Правила (упрощённая HTML5‑версия)</h2>
+        <p>
+          Я не нашёл в этом репозитории описания оригинальной мини‑игры «Две башни» из «Герои войны и денег», поэтому ниже — игра
+          <b>по мотивам</b>: две башни у каждого игрока, карты, энергия, цель — разрушить <b>обе</b> башни противника.
+          Список карт и баланс легко менять прямо в этом файле (внизу ищите <b>CARDS</b>).
+        </p>
+        <ul>
+          <li><b>Победа</b>: обе башни противника (Левая и Правая) имеют 0 HP.</li>
+          <li><b>Ход</b>: в начале хода вы получаете энергию (до 10) и добираете 1 карту. Играете карты, пока хватает энергии, затем заканчиваете ход.</li>
+          <li><b>Щит</b>: некоторые карты дают щит башне — щит поглощает урон первым.</li>
+          <li><b>Цели</b>: выберите карту → нажмите на нужную башню (свою или вражескую). Карты «по всем»/«случайная цель» применяются сразу.</li>
+        </ul>
+
+        <div class="grid">
+          <div class="field">
+            <label for="aiLevel">Сложность ИИ (1–5)</label>
+            <input id="aiLevel" type="range" min="1" max="5" step="1" />
+            <div class="val"><span>глупее</span><span>умнее</span></div>
+          </div>
+          <div class="field">
+            <label for="sound">Звук</label>
+            <input id="sound" type="range" min="0" max="1" step="1" />
+            <div class="val"><span>выкл</span><span>вкл</span></div>
+          </div>
+        </div>
+
+        <div class="row2">
+          <button class="btn" id="btnCloseHelp">Закрыть</button>
+          <button class="btn primary" id="btnRestartFromHelp">Новая игра</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      "use strict";
+
+      // -----------------------------
+      // Helpers
+      // -----------------------------
+      const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
+      const rint = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+      const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+      const shuffle = (arr) => {
+        for (let i = arr.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+      };
+
+      const storage = {
+        get(key, fallback){
+          try{
+            const v = localStorage.getItem(key);
+            return v === null ? fallback : JSON.parse(v);
+          }catch{
+            return fallback;
+          }
+        },
+        set(key, value){
+          try{ localStorage.setItem(key, JSON.stringify(value)); }catch{}
+        }
+      };
+
+      // -----------------------------
+      // Audio (simple beep)
+      // -----------------------------
+      let audioCtx = null;
+      function beep(freq = 440, ms = 55, gain = 0.02){
+        if (!state.settings.sound) return;
+        try{
+          audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+          const o = audioCtx.createOscillator();
+          const g = audioCtx.createGain();
+          o.frequency.value = freq;
+          o.type = "sine";
+          g.gain.value = gain;
+          o.connect(g);
+          g.connect(audioCtx.destination);
+          o.start();
+          setTimeout(() => { try{ o.stop(); }catch{} }, ms);
+        }catch{}
+      }
+
+      // -----------------------------
+      // Cards (you can edit balance here)
+      // -----------------------------
+      // target:
+      // - "enemyTower" | "playerTower" | "anyTower" | "none"
+      // mode:
+      // - "single" | "bothEnemy" | "randomEnemy" | "bothPlayer"
+      const CARDS = [
+        { id:"strike", name:"Удар", type:"Атака", cost:1, target:"enemyTower", mode:"single",
+          desc:"Наносит 3 урона выбранной вражеской башне.",
+          effect: ({actor, target}) => damage(actor, target.side, target.idx, 3) },
+
+        { id:"arrows", name:"Залп стрел", type:"Атака", cost:2, target:"none", mode:"bothEnemy",
+          desc:"Наносит 2 урона обеим вражеским башням.",
+          effect: ({actor}) => { damage(actor, other(actor), 0, 2); damage(actor, other(actor), 1, 2); } },
+
+        { id:"fireball", name:"Огненный шар", type:"Магия", cost:3, target:"enemyTower", mode:"single",
+          desc:"Наносит 6 урона выбранной вражеской башне.",
+          effect: ({actor, target}) => damage(actor, target.side, target.idx, 6) },
+
+        { id:"catapult", name:"Катапульта", type:"Осада", cost:4, target:"none", mode:"randomEnemy",
+          desc:"Наносит 8 урона случайной вражеской башне.",
+          effect: ({actor}) => {
+            const enemySide = other(actor);
+            const idx = chooseAliveTower(enemySide);
+            if (idx === null) return;
+            damage(actor, enemySide, idx, 8);
+          }},
+
+        { id:"repair", name:"Ремонт", type:"Поддержка", cost:2, target:"playerTower", mode:"single",
+          desc:"Лечит 4 HP выбранной вашей башне (не оживляет разрушенную).",
+          effect: ({actor, target}) => heal(actor, target.side, target.idx, 4) },
+
+        { id:"fortify", name:"Укрепление", type:"Поддержка", cost:2, target:"playerTower", mode:"single",
+          desc:"Даёт 5 щита выбранной вашей башне.",
+          effect: ({actor, target}) => addShield(actor, target.side, target.idx, 5) },
+
+        { id:"sabotage", name:"Саботаж", type:"Тактика", cost:2, target:"enemyTower", mode:"single",
+          desc:"Снимает до 6 щита с вражеской башни. Если щита нет — наносит 2 урона.",
+          effect: ({actor, target}) => removeShieldOrPoke(actor, target.side, target.idx, 6, 2) },
+
+        { id:"drain", name:"Высасывание", type:"Магия", cost:3, target:"enemyTower", mode:"single",
+          desc:"Наносит 4 урона башне врага и лечит вашу самую раненую башню на 2.",
+          effect: ({actor, target}) => {
+            damage(actor, target.side, target.idx, 4);
+            const s = actor;
+            const idx = mostWoundedAliveTower(s);
+            if (idx !== null) heal(actor, s, idx, 2);
+          }},
+
+        { id:"swap", name:"Переброс гарнизона", type:"Тактика", cost:2, target:"none", mode:"none",
+          desc:"Меняет местами HP ваших башен (и щит тоже).",
+          effect: ({actor}) => swapTowers(actor) },
+
+        { id:"scout", name:"Разведка", type:"Тактика", cost:1, target:"none", mode:"none",
+          desc:"Возьмите 2 карты, затем сбросьте 1 случайную (если рука переполнена).",
+          effect: ({actor}) => {
+            draw(actor, 2);
+            // Hand limit handling happens globally; this adds flavor via possible discard
+            if (getSide(actor).hand.length > 7) {
+              const hand = getSide(actor).hand;
+              const i = rint(0, hand.length - 1);
+              const [c] = hand.splice(i, 1);
+              getSide(actor).discard.push(c);
+              logLine(actor === "player" ? "Вы сбросили лишнюю карту." : "Противник сбросил лишнюю карту.", "warn");
+            }
+          }},
+
+        { id:"quake", name:"Землетрясение", type:"Осада", cost:5, target:"none", mode:"bothEnemy",
+          desc:"Наносит 4 урона обеим вражеским башням и снимает 2 щита с каждой.",
+          effect: ({actor}) => {
+            const enemy = other(actor);
+            damage(actor, enemy, 0, 4); damage(actor, enemy, 1, 4);
+            removeShield(actor, enemy, 0, 2); removeShield(actor, enemy, 1, 2);
+          }},
+
+        { id:"barrier", name:"Барьер", type:"Магия", cost:3, target:"none", mode:"bothPlayer",
+          desc:"Даёт по 3 щита обеим вашим башням.",
+          effect: ({actor}) => { addShield(actor, actor, 0, 3); addShield(actor, actor, 1, 3); } },
+
+        { id:"precision", name:"Прицельный выстрел", type:"Атака", cost:2, target:"enemyTower", mode:"single",
+          desc:"Наносит 5 урона, если у цели нет щита; иначе 3 урона.",
+          effect: ({actor, target}) => {
+            const s = getSide(target.side);
+            const dmg = s.shield[target.idx] > 0 ? 3 : 5;
+            damage(actor, target.side, target.idx, dmg);
+          }},
+
+        { id:"overload", name:"Перегруз", type:"Магия", cost:2, target:"anyTower", mode:"single",
+          desc:"Наносит 3 урона любой башне. Если попали по своей — получите +1 энергии (в этот ход).",
+          effect: ({actor, target}) => {
+            damage(actor, target.side, target.idx, 3);
+            if (target.side === actor) {
+              const me = getSide(actor);
+              me.energy = clamp(me.energy + 1, 0, me.maxEnergy);
+              logLine(actor === "player" ? "Вы получили +1 энергии." : "Противник получил +1 энергии.", "good");
+            }
+          }},
+      ];
+
+      // Deck recipe (duplicates)
+      const DECKLIST = [
+        "strike","strike","strike","strike",
+        "arrows","arrows",
+        "fireball","fireball",
+        "catapult",
+        "repair","repair",
+        "fortify","fortify",
+        "sabotage","sabotage",
+        "drain","drain",
+        "scout","scout",
+        "swap",
+        "quake",
+        "barrier",
+        "precision","precision",
+        "overload","overload"
+      ];
+
+      const CARD_BY_ID = Object.fromEntries(CARDS.map(c => [c.id, c]));
+
+      // -----------------------------
+      // Game state
+      // -----------------------------
+      const state = {
+        settings: {
+          aiLevel: storage.get("tt_aiLevel", 2),
+          sound: storage.get("tt_sound", 0),
+        },
+        phase: "idle", // idle | player | enemy | over
+        selectedCardIndex: null,
+        message: "",
+        winner: null,
+        player: null,
+        enemy: null,
+        log: [],
+      };
+
+      function makeSide(){
+        const deck = shuffle(DECKLIST.map(id => ({ id })));
+        return {
+          towers: [30, 30],
+          maxTowers: [30, 30],
+          shield: [0, 0],
+          deck,
+          hand: [],
+          discard: [],
+          maxEnergy: 0,
+          energy: 0,
+          usedThisTurn: 0,
+        };
+      }
+
+      function other(side){ return side === "player" ? "enemy" : "player"; }
+      function getSide(side){ return side === "player" ? state.player : state.enemy; }
+
+      function towerAlive(side, idx){
+        return getSide(side).towers[idx] > 0;
+      }
+
+      function chooseAliveTower(side){
+        const s = getSide(side);
+        const alive = [0,1].filter(i => s.towers[i] > 0);
+        if (alive.length === 0) return null;
+        return pick(alive);
+      }
+
+      function mostWoundedAliveTower(side){
+        const s = getSide(side);
+        const alive = [0,1].filter(i => s.towers[i] > 0);
+        if (alive.length === 0) return null;
+        alive.sort((a,b) => (s.towers[a]/s.maxTowers[a]) - (s.towers[b]/s.maxTowers[b]));
+        return alive[0];
+      }
+
+      function logLine(text, tone=""){
+        state.log.unshift({ text, tone, t: Date.now() });
+        state.log = state.log.slice(0, 30);
+        renderLog();
+      }
+
+      function applyDamageToTower(side, idx, amount){
+        const s = getSide(side);
+        if (s.towers[idx] <= 0) return { dealt:0, absorbed:0 };
+        let remaining = amount;
+        let absorbed = 0;
+        if (s.shield[idx] > 0 && remaining > 0) {
+          const a = Math.min(s.shield[idx], remaining);
+          s.shield[idx] -= a;
+          remaining -= a;
+          absorbed += a;
+        }
+        const dealt = Math.min(s.towers[idx], remaining);
+        s.towers[idx] -= dealt;
+        return { dealt, absorbed };
+      }
+
+      function damage(actor, targetSide, targetIdx, amount){
+        if (!towerAlive(targetSide, targetIdx)) {
+          logLine("Цель уже разрушена.", "warn");
+          return;
+        }
+        const { dealt, absorbed } = applyDamageToTower(targetSide, targetIdx, amount);
+        const who = actor === "player" ? "Вы" : "Противник";
+        const which = targetSide === "player" ? "вашей" : "вражеской";
+        const label = targetIdx === 0 ? "левой" : "правой";
+        if (absorbed > 0 && dealt > 0) {
+          logLine(`${who} нанесли ${dealt} урона ${which} ${label} башне (щит поглотил ${absorbed}).`, "bad");
+        } else if (absorbed > 0 && dealt === 0) {
+          logLine(`${who} ударили ${which} ${label} башню: весь урон поглотил щит (${absorbed}).`, "warn");
+        } else {
+          logLine(`${who} нанесли ${dealt} урона ${which} ${label} башне.`, "bad");
+        }
+        beep(220 + amount * 15, 45, 0.02);
+        checkGameOver();
+        renderAll();
+      }
+
+      function heal(actor, targetSide, targetIdx, amount){
+        const s = getSide(targetSide);
+        if (s.towers[targetIdx] <= 0) {
+          logLine("Нельзя лечить разрушенную башню.", "warn");
+          return;
+        }
+        const before = s.towers[targetIdx];
+        s.towers[targetIdx] = clamp(s.towers[targetIdx] + amount, 0, s.maxTowers[targetIdx]);
+        const gained = s.towers[targetIdx] - before;
+        const who = actor === "player" ? "Вы" : "Противник";
+        const which = targetSide === "player" ? "вашу" : "вражескую";
+        const label = targetIdx === 0 ? "левую" : "правую";
+        logLine(`${who} вылечили ${which} ${label} башню на ${gained} HP.`, "good");
+        beep(700, 55, 0.018);
+        renderAll();
+      }
+
+      function addShield(actor, targetSide, targetIdx, amount){
+        const s = getSide(targetSide);
+        if (s.towers[targetIdx] <= 0) {
+          logLine("Нельзя дать щит разрушенной башне.", "warn");
+          return;
+        }
+        s.shield[targetIdx] = clamp(s.shield[targetIdx] + amount, 0, 99);
+        const who = actor === "player" ? "Вы" : "Противник";
+        const which = targetSide === "player" ? "вашей" : "вражеской";
+        const label = targetIdx === 0 ? "левой" : "правой";
+        logLine(`${who} дали +${amount} щита ${which} ${label} башне.`, "good");
+        beep(560, 50, 0.012);
+        renderAll();
+      }
+
+      function removeShield(actor, targetSide, targetIdx, amount){
+        const s = getSide(targetSide);
+        const before = s.shield[targetIdx];
+        s.shield[targetIdx] = clamp(s.shield[targetIdx] - amount, 0, 99);
+        const removed = before - s.shield[targetIdx];
+        if (removed <= 0) return 0;
+        const who = actor === "player" ? "Вы" : "Противник";
+        const which = targetSide === "player" ? "вашей" : "вражеской";
+        const label = targetIdx === 0 ? "левой" : "правой";
+        logLine(`${who} сняли ${removed} щита с ${which} ${label} башни.`, "warn");
+        return removed;
+      }
+
+      function removeShieldOrPoke(actor, targetSide, targetIdx, amount, poke){
+        const removed = removeShield(actor, targetSide, targetIdx, amount);
+        if (removed <= 0) damage(actor, targetSide, targetIdx, poke);
+        renderAll();
+      }
+
+      function swapTowers(side){
+        const s = getSide(side);
+        [s.towers[0], s.towers[1]] = [s.towers[1], s.towers[0]];
+        [s.shield[0], s.shield[1]] = [s.shield[1], s.shield[0]];
+        logLine(side === "player" ? "Вы поменяли башни местами." : "Противник поменял башни местами.", "warn");
+        renderAll();
+      }
+
+      function draw(side, n=1){
+        const s = getSide(side);
+        for (let i=0;i<n;i++){
+          if (s.deck.length === 0 && s.discard.length > 0){
+            s.deck = shuffle(s.discard.splice(0));
+            logLine(side === "player" ? "Колода закончилась — замешали сброс." : "Противник замешал сброс.", "warn");
+          }
+          if (s.deck.length === 0) return;
+          s.hand.push(s.deck.pop());
+        }
+      }
+
+      function discardCard(side, handIdx){
+        const s = getSide(side);
+        const [c] = s.hand.splice(handIdx, 1);
+        if (c) s.discard.push(c);
+      }
+
+      function startTurn(side){
+        const s = getSide(side);
+        s.maxEnergy = clamp(s.maxEnergy + 1, 1, 10);
+        s.energy = s.maxEnergy;
+        s.usedThisTurn = 0;
+        draw(side, 1);
+
+        // Soft hand limit: if > 7, discard random until 7
+        while (s.hand.length > 7){
+          const i = rint(0, s.hand.length - 1);
+          discardCard(side, i);
+          logLine(side === "player" ? "Лишняя карта ушла в сброс." : "У противника лишняя карта ушла в сброс.", "warn");
+        }
+      }
+
+      function canPlayCard(side, card){
+        const s = getSide(side);
+        return state.phase === side && s.energy >= card.cost;
+      }
+
+      function playCard(side, handIdx, target){
+        if (state.phase !== side) return;
+        const s = getSide(side);
+        const inHand = s.hand[handIdx];
+        if (!inHand) return;
+        const card = CARD_BY_ID[inHand.id];
+        if (!card) return;
+        if (s.energy < card.cost) {
+          logLine("Не хватает энергии.", "warn");
+          beep(180, 50, 0.01);
+          return;
+        }
+
+        // Validate target requirements
+        if (card.target !== "none") {
+          if (!target) { logLine("Нужна цель.", "warn"); return; }
+          if (card.target === "enemyTower" && target.side !== other(side)) { logLine("Эта карта требует цель врага.", "warn"); return; }
+          if (card.target === "playerTower" && target.side !== side) { logLine("Эта карта требует вашу башню.", "warn"); return; }
+          if (card.target === "anyTower") {
+            // ok
+          }
+          if (!towerAlive(target.side, target.idx)) { logLine("Цель разрушена.", "warn"); return; }
+        }
+
+        s.energy -= card.cost;
+        s.usedThisTurn += card.cost;
+        discardCard(side, handIdx);
+
+        const who = side === "player" ? "Вы" : "Противник";
+        logLine(`${who} разыграли карту: <b>${card.name}</b>.`);
+        beep(440 + card.cost * 30, 40, 0.012);
+
+        try{
+          card.effect({ actor: side, target });
+        }catch(e){
+          console.error(e);
+          logLine("Ошибка применения карты (см. консоль).", "bad");
+        }
+
+        state.selectedCardIndex = null;
+        renderAll();
+      }
+
+      function checkGameOver(){
+        const p = state.player.towers[0] <= 0 && state.player.towers[1] <= 0;
+        const e = state.enemy.towers[0] <= 0 && state.enemy.towers[1] <= 0;
+        if (!p && !e) return;
+        state.phase = "over";
+        state.winner = e && !p ? "player" : (!e && p ? "enemy" : "draw");
+        if (state.winner === "player") logLine("Победа! Обе вражеские башни разрушены.", "good");
+        else if (state.winner === "enemy") logLine("Поражение. Ваши башни разрушены.", "bad");
+        else logLine("Ничья.", "warn");
+        renderAll();
+      }
+
+      // -----------------------------
+      // AI
+      // -----------------------------
+      function aiTakeTurn(){
+        if (state.phase !== "enemy") return;
+        const ai = state.enemy;
+        const me = state.enemy;
+        const you = state.player;
+
+        const level = clamp(state.settings.aiLevel, 1, 5);
+        // level affects randomness and lookahead depth
+        const randomness = (6 - level) * 0.18; // 0.9..0.18
+
+        // Try to play up to N actions
+        let actions = 0;
+        const maxActions = 2 + Math.floor(level / 2);
+
+        const step = () => {
+          if (state.phase !== "enemy") return;
+          if (actions >= maxActions) return endTurn("enemy");
+          actions++;
+
+          // Build candidates
+          const candidates = [];
+          for (let i = 0; i < ai.hand.length; i++){
+            const c = CARD_BY_ID[ai.hand[i].id];
+            if (!c) continue;
+            if (ai.energy < c.cost) continue;
+            const opts = enumerateTargetsForCard("enemy", c);
+            if (opts.length === 0) {
+              candidates.push({ handIdx:i, card:c, target:null, score: scoreCard("enemy", c, null) });
+            } else {
+              for (const t of opts){
+                candidates.push({ handIdx:i, card:c, target:t, score: scoreCard("enemy", c, t) });
+              }
+            }
+          }
+
+          if (candidates.length === 0) return endTurn("enemy");
+
+          // Pick best with a bit of noise
+          candidates.sort((a,b) => b.score - a.score);
+          const top = candidates.slice(0, Math.min(5, candidates.length));
+          for (const cand of top) cand.score += (Math.random() - 0.5) * randomness;
+          top.sort((a,b) => b.score - a.score);
+          const chosen = top[0];
+
+          playCard("enemy", chosen.handIdx, chosen.target);
+          if (state.phase === "over") return;
+          setTimeout(step, 420);
+        };
+
+        setTimeout(step, 420);
+      }
+
+      function enumerateTargetsForCard(side, card){
+        const res = [];
+        const enemy = other(side);
+        if (card.target === "none") return res;
+        const sides = card.target === "enemyTower" ? [enemy]
+          : (card.target === "playerTower" ? [side] : ["player","enemy"]);
+        for (const s of sides){
+          for (const idx of [0,1]){
+            if (!towerAlive(s, idx)) continue;
+            res.push({ side: s, idx });
+          }
+        }
+        return res;
+      }
+
+      function scoreCard(side, card, target){
+        // Positive = good for 'side' player.
+        const me = getSide(side);
+        const opp = getSide(other(side));
+
+        const towerValue = (s, idx) => {
+          const alive = s.towers[idx] > 0;
+          const hp = s.towers[idx];
+          const max = s.maxTowers[idx];
+          const shield = s.shield[idx];
+          const ratio = max ? (hp / max) : 0;
+          return (alive ? 1 : 0) + (1 - ratio) * 2.2 + clamp(shield / 10, 0, 1) * 0.4;
+        };
+
+        // Base preferences by type
+        let score = 0;
+        score += (card.type === "Осада") ? 0.2 : 0;
+        score += (card.type === "Магия") ? 0.1 : 0;
+        score -= card.cost * 0.06;
+
+        // Heuristic effects
+        if (card.id === "repair" && target){
+          const t = getSide(target.side);
+          const missing = t.maxTowers[target.idx] - t.towers[target.idx];
+          score += missing * 0.35;
+        }
+        if (card.id === "fortify" && target){
+          const t = getSide(target.side);
+          const missing = t.maxTowers[target.idx] - t.towers[target.idx];
+          score += missing * 0.15;
+          score += (t.shield[target.idx] < 3) ? 0.55 : 0.15;
+        }
+        if (card.id === "strike" && target){
+          score += towerValue(getSide(target.side), target.idx) * 0.9;
+        }
+        if (card.id === "fireball" && target){
+          score += towerValue(getSide(target.side), target.idx) * 1.25;
+        }
+        if (card.id === "precision" && target){
+          const t = getSide(target.side);
+          score += towerValue(t, target.idx) * 1.05;
+          score += (t.shield[target.idx] === 0) ? 0.35 : 0.05;
+        }
+        if (card.id === "sabotage" && target){
+          const t = getSide(target.side);
+          score += (t.shield[target.idx] > 0) ? 0.9 : 0.2;
+          score += towerValue(t, target.idx) * 0.5;
+        }
+        if (card.id === "drain" && target){
+          const t = getSide(target.side);
+          score += towerValue(t, target.idx) * 0.9;
+          score += (mostWoundedAliveTower(side) !== null) ? 0.25 : 0;
+        }
+        if (card.id === "arrows"){
+          score += towerValue(opp, 0) * 0.55 + towerValue(opp, 1) * 0.55;
+        }
+        if (card.id === "quake"){
+          score += towerValue(opp, 0) * 0.75 + towerValue(opp, 1) * 0.75;
+          score += (opp.shield[0] + opp.shield[1]) * 0.06;
+        }
+        if (card.id === "barrier"){
+          score += (me.shield[0] + me.shield[1]) * 0.03;
+          score += (me.towers[0] > 0 ? (1 - me.towers[0]/me.maxTowers[0]) : 0) * 0.6;
+          score += (me.towers[1] > 0 ? (1 - me.towers[1]/me.maxTowers[1]) : 0) * 0.6;
+        }
+        if (card.id === "catapult"){
+          score += towerValue(opp, 0) * 0.75 + towerValue(opp, 1) * 0.75;
+        }
+        if (card.id === "scout"){
+          score += (me.deck.length + me.discard.length > 0) ? 0.38 : 0.08;
+          score += (me.hand.length < 6) ? 0.22 : 0.05;
+        }
+        if (card.id === "swap"){
+          // Only good if one tower is much healthier than the other and shield distribution helps.
+          const diff = Math.abs(me.towers[0] - me.towers[1]);
+          score += (diff >= 8) ? 0.35 : 0.05;
+        }
+        if (card.id === "overload" && target){
+          // AI uses overload mostly offensively; self-hit is risky
+          score += (target.side === other(side)) ? 0.7 : -0.35;
+        }
+
+        // If target is about to die, prioritize lethal
+        if (target && target.side === other(side)){
+          const t = getSide(target.side);
+          const effectiveHp = t.towers[target.idx] + t.shield[target.idx];
+          if (effectiveHp <= 6) score += 0.9;
+        }
+
+        return score;
+      }
+
+      // -----------------------------
+      // UI
+      // -----------------------------
+      const el = (id) => document.getElementById(id);
+
+      const ui = {
+        energy: el("uiEnergy"),
+        turn: el("uiTurn"),
+        deck: el("uiDeck"),
+        discard: el("uiDiscard"),
+        hand: el("uiHand"),
+        cards: el("cards"),
+        hint: el("uiHint"),
+        log: el("log"),
+        aiLevelChip: el("uiAiLevel"),
+
+        enemyTower0Btn: el("enemyTower0Btn"),
+        enemyTower1Btn: el("enemyTower1Btn"),
+        playerTower0Btn: el("playerTower0Btn"),
+        playerTower1Btn: el("playerTower1Btn"),
+
+        btnHelp: el("btnHelp"),
+        btnNew: el("btnNew"),
+        btnEndTurn: el("btnEndTurn"),
+        btnConcede: el("btnConcede"),
+
+        modalBackdrop: el("modalBackdrop"),
+        aiLevel: el("aiLevel"),
+        sound: el("sound"),
+        btnCloseHelp: el("btnCloseHelp"),
+        btnRestartFromHelp: el("btnRestartFromHelp"),
+      };
+
+      function towerHtml(side, idx){
+        const s = getSide(side);
+        const hp = s.towers[idx];
+        const max = s.maxTowers[idx];
+        const shield = s.shield[idx];
+        const ratio = max ? (hp / max) : 0;
+        const dead = hp <= 0;
+        const who = side === "player" ? "Ваша" : "Враг";
+        const label = idx === 0 ? "Левая" : "Правая";
+        const cls = ["tower", side === "enemy" ? "enemy" : "", dead ? "dead": "", isTowerSelected(side, idx) ? "selected" : ""].join(" ").trim();
+        return `
+          <div class="${cls}">
+            <div class="name">
+              <div>
+                <div class="side">${who} башня</div>
+                <div class="tag">${label}</div>
+              </div>
+              <div class="tag">${dead ? "<span class='bad'>Разрушена</span>" : "Цель: нажмите"}</div>
+            </div>
+            <div>
+              <div class="hpRow"><span>HP</span><span><b>${hp}</b> / ${max}</span></div>
+              <div class="bar"><i style="width:${Math.round(clamp(ratio,0,1)*100)}%"></i></div>
+              <div class="shield">${shield > 0 ? `<span class="dot"></span><span>Щит: <b>${shield}</b></span>` : `<span style="opacity:.65">Щит: 0</span>`}</div>
+            </div>
+          </div>
+        `;
+      }
+
+      function isTowerSelected(side, idx){
+        if (state.selectedCardIndex === null) return false;
+        const card = getSelectedCard();
+        if (!card) return false;
+        // We only highlight valid targets
+        if (card.target === "none") return false;
+        if (card.target === "enemyTower" && side !== other(state.phase)) return false;
+        if (card.target === "playerTower" && side !== state.phase) return false;
+        if (!towerAlive(side, idx)) return false;
+        return true;
+      }
+
+      function renderTowers(){
+        ui.enemyTower0Btn.innerHTML = towerHtml("enemy", 0);
+        ui.enemyTower1Btn.innerHTML = towerHtml("enemy", 1);
+        ui.playerTower0Btn.innerHTML = towerHtml("player", 0);
+        ui.playerTower1Btn.innerHTML = towerHtml("player", 1);
+      }
+
+      function renderCards(){
+        const s = getSide("player");
+        const canInteract = state.phase === "player";
+        ui.cards.innerHTML = s.hand.map((c, idx) => {
+          const card = CARD_BY_ID[c.id];
+          const selected = state.selectedCardIndex === idx;
+          const playable = canInteract && s.energy >= card.cost;
+          const cls = ["card", selected ? "selected" : "", playable ? "" : "disabled"].join(" ").trim();
+          return `
+            <div class="${cls}" data-idx="${idx}" role="button" aria-label="Карта ${escapeHtml(card.name)}">
+              <div class="row">
+                <div>
+                  <div class="name">${escapeHtml(card.name)}</div>
+                  <div class="type">${escapeHtml(card.type)}</div>
+                </div>
+                <div class="cost">${card.cost}</div>
+              </div>
+              <div class="desc">${escapeHtml(card.desc)}</div>
+            </div>
+          `;
+        }).join("");
+      }
+
+      function renderTop(){
+        const p = getSide("player");
+        ui.energy.textContent = `${p.energy}/${p.maxEnergy}`;
+        ui.aiLevelChip.textContent = String(state.settings.aiLevel);
+        ui.turn.textContent = state.phase === "player" ? "Вы" : (state.phase === "enemy" ? "Противник" : (state.phase === "over" ? "Конец" : "—"));
+        ui.deck.textContent = String(p.deck.length);
+        ui.discard.textContent = String(p.discard.length);
+        ui.hand.textContent = String(p.hand.length);
+
+        ui.btnEndTurn.disabled = state.phase !== "player";
+      }
+
+      function renderHint(){
+        if (state.phase === "over") {
+          ui.hint.innerHTML = state.winner === "player"
+            ? "<b>Победа.</b> Нажмите «Новая игра»."
+            : (state.winner === "enemy" ? "<b>Поражение.</b> Нажмите «Новая игра»." : "<b>Ничья.</b> Нажмите «Новая игра».");
+          return;
+        }
+        if (state.phase === "enemy") {
+          ui.hint.textContent = "Ход противника…";
+          return;
+        }
+        if (state.selectedCardIndex === null) {
+          ui.hint.textContent = "Выберите карту, затем нажмите на цель (башню). Некоторые карты применяются без цели.";
+          return;
+        }
+        const c = getSelectedCard();
+        if (!c) { ui.hint.textContent = "Выберите карту."; return; }
+        if (c.target === "none") {
+          ui.hint.innerHTML = `Карта <b>${escapeHtml(c.name)}</b> применяется без цели — нажмите на карту ещё раз, чтобы сыграть.`;
+          return;
+        }
+        const tgt = c.target === "enemyTower" ? "вражескую башню" : (c.target === "playerTower" ? "вашу башню" : "любую башню");
+        ui.hint.innerHTML = `Выбрана карта <b>${escapeHtml(c.name)}</b>. Нажмите на ${tgt}.`;
+      }
+
+      function renderLog(){
+        ui.log.innerHTML = state.log.map(x => `<div class="line ${x.tone || ""}">${x.text}</div>`).join("");
+      }
+
+      function renderAll(){
+        renderTop();
+        renderTowers();
+        renderCards();
+        renderHint();
+      }
+
+      function escapeHtml(s){
+        return String(s)
+          .replaceAll("&","&amp;")
+          .replaceAll("<","&lt;")
+          .replaceAll(">","&gt;")
+          .replaceAll('"',"&quot;")
+          .replaceAll("'","&#039;");
+      }
+
+      // -----------------------------
+      // Interactions
+      // -----------------------------
+      function getSelectedCard(){
+        if (state.selectedCardIndex === null) return null;
+        const hand = getSide("player").hand;
+        const entry = hand[state.selectedCardIndex];
+        if (!entry) return null;
+        return CARD_BY_ID[entry.id] || null;
+      }
+
+      function onCardTap(idx){
+        if (state.phase !== "player") return;
+        const s = getSide("player");
+        const entry = s.hand[idx];
+        if (!entry) return;
+        const card = CARD_BY_ID[entry.id];
+        if (!card) return;
+        if (s.energy < card.cost) { beep(180, 50, 0.01); logLine("Не хватает энергии.", "warn"); return; }
+
+        // Tap again to play if no target required
+        if (state.selectedCardIndex === idx && card.target === "none") {
+          playCard("player", idx, null);
+          return;
+        }
+
+        state.selectedCardIndex = (state.selectedCardIndex === idx) ? null : idx;
+        beep(520, 35, 0.01);
+        renderAll();
+      }
+
+      function onTowerTap(side, idx){
+        if (state.phase !== "player") return;
+        if (state.selectedCardIndex === null) { beep(240, 35, 0.01); return; }
+        const card = getSelectedCard();
+        if (!card) return;
+        playCard("player", state.selectedCardIndex, { side, idx });
+      }
+
+      function endTurn(side){
+        if (state.phase !== side) return;
+        state.selectedCardIndex = null;
+        if (side === "player") {
+          state.phase = "enemy";
+          logLine("Ваш ход завершён.", "warn");
+          renderAll();
+          startTurn("enemy");
+          renderAll();
+          aiTakeTurn();
+        } else {
+          state.phase = "player";
+          logLine("Ход противника завершён.", "warn");
+          startTurn("player");
+          renderAll();
+        }
+      }
+
+      function concede(){
+        if (state.phase === "over") return;
+        state.phase = "over";
+        state.winner = "enemy";
+        logLine("Вы сдались.", "bad");
+        renderAll();
+      }
+
+      function newGame(){
+        state.player = makeSide();
+        state.enemy = makeSide();
+        state.phase = "player";
+        state.selectedCardIndex = null;
+        state.winner = null;
+        state.log = [];
+
+        draw("player", 5);
+        draw("enemy", 5);
+        startTurn("player");
+
+        logLine("Новая игра началась.", "good");
+        renderAll();
+      }
+
+      function showHelp(show){
+        ui.modalBackdrop.classList.toggle("show", !!show);
+        if (show) {
+          ui.aiLevel.value = String(state.settings.aiLevel);
+          ui.sound.value = String(state.settings.sound ? 1 : 0);
+        }
+      }
+
+      // -----------------------------
+      // Wiring
+      // -----------------------------
+      ui.cards.addEventListener("click", (e) => {
+        const cardEl = e.target.closest(".card");
+        if (!cardEl) return;
+        const idx = Number(cardEl.getAttribute("data-idx"));
+        if (Number.isFinite(idx)) onCardTap(idx);
+      });
+
+      ui.enemyTower0Btn.addEventListener("click", () => onTowerTap("enemy", 0));
+      ui.enemyTower1Btn.addEventListener("click", () => onTowerTap("enemy", 1));
+      ui.playerTower0Btn.addEventListener("click", () => onTowerTap("player", 0));
+      ui.playerTower1Btn.addEventListener("click", () => onTowerTap("player", 1));
+
+      ui.btnEndTurn.addEventListener("click", () => endTurn("player"));
+      ui.btnConcede.addEventListener("click", concede);
+      ui.btnNew.addEventListener("click", newGame);
+      ui.btnHelp.addEventListener("click", () => showHelp(true));
+      ui.btnCloseHelp.addEventListener("click", () => showHelp(false));
+      ui.btnRestartFromHelp.addEventListener("click", () => { showHelp(false); newGame(); });
+
+      ui.modalBackdrop.addEventListener("click", (e) => {
+        if (e.target === ui.modalBackdrop) showHelp(false);
+      });
+
+      ui.aiLevel.addEventListener("input", () => {
+        state.settings.aiLevel = Number(ui.aiLevel.value);
+        storage.set("tt_aiLevel", state.settings.aiLevel);
+        ui.aiLevelChip.textContent = String(state.settings.aiLevel);
+      });
+      ui.sound.addEventListener("input", () => {
+        state.settings.sound = Number(ui.sound.value) === 1;
+        storage.set("tt_sound", state.settings.sound ? 1 : 0);
+        beep(820, 70, 0.02);
+      });
+
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") showHelp(false);
+      });
+
+      // -----------------------------
+      // Boot
+      // -----------------------------
+      (function boot(){
+        // Normalize stored values
+        state.settings.aiLevel = clamp(Number(state.settings.aiLevel || 2), 1, 5);
+        state.settings.sound = !!Number(state.settings.sound || 0);
+        storage.set("tt_aiLevel", state.settings.aiLevel);
+        storage.set("tt_sound", state.settings.sound ? 1 : 0);
+
+        ui.aiLevelChip.textContent = String(state.settings.aiLevel);
+        newGame();
+      })();
+    </script>
+  </body>
+</html>
