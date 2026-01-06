@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Две Башни (HWM Clone)</title>
+    <style>
+        :root {
+            --brick-color: #d35400;
+            --gem-color: #2980b9;
+            --recruit-color: #27ae60;
+            --bg-color: #2c3e50;
+            --card-bg: #ecf0f1;
+            --text-color: #ecf0f1;
+            --tower-color: #95a5a6;
+            --wall-color: #7f8c8d;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .header {
+            text-align: center;
+            padding: 5px;
+            background: rgba(0,0,0,0.3);
+            font-size: 14px;
+        }
+
+        .game-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 5px;
+            overflow: hidden;
+        }
+
+        .player-zone {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding: 5px;
+            background: rgba(0,0,0,0.1);
+            border-radius: 8px;
+            margin-bottom: 5px;
+            height: 35%; 
+        }
+
+        .enemy-zone {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 5px;
+            background: rgba(0,0,0,0.1);
+            border-radius: 8px;
+            margin-bottom: 5px;
+            height: 35%;
+        }
+
+        .stats-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            width: 30%;
+            font-size: 11px;
+        }
+
+        .resource-row {
+            display: flex;
+            align-items: center;
+            background: rgba(0,0,0,0.3);
+            padding: 3px;
+            border-radius: 4px;
+        }
+
+        .res-icon {
+            width: 12px;
+            height: 12px;
+            margin-right: 4px;
+            border-radius: 50%;
+        }
+        .res-brick { background: var(--brick-color); }
+        .res-gem { background: var(--gem-color); }
+        .res-recruit { background: var(--recruit-color); }
+
+        .visual-area {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            height: 100%;
+            gap: 10px;
+            position: relative;
+        }
+
+        .structure {
+            width: 40px;
+            transition: height 0.3s ease;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            font-size: 12px;
+            color: #000;
+            border-top-left-radius: 4px;
+            border-top-right-radius: 4px;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
+            min-height: 20px; /* Visibility */
+        }
+
+        .tower { background: var(--tower-color); border: 2px solid #555; }
+        .wall { background: var(--wall-color); border: 2px solid #444; }
+
+        .enemy-zone .visual-area { align-items: flex-start; }
+        .enemy-zone .structure { border-bottom-left-radius: 4px; border-bottom-right-radius: 4px; border-top-left-radius: 0; border-top-right-radius: 0; }
+
+        .hand-area {
+            height: 25%;
+            overflow-x: auto;
+            white-space: nowrap;
+            padding: 5px;
+            background: rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+        }
+
+        .card {
+            display: inline-flex;
+            flex-direction: column;
+            width: 90px;
+            height: 130px;
+            background: var(--card-bg);
+            color: #333;
+            margin-right: 8px;
+            border-radius: 6px;
+            padding: 4px;
+            box-sizing: border-box;
+            cursor: pointer;
+            position: relative;
+            white-space: normal;
+            vertical-align: top;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            border: 2px solid transparent;
+            font-size: 10px;
+            flex-shrink: 0;
+            transition: transform 0.1s;
+        }
+
+        .card:active {
+            transform: scale(0.95);
+        }
+
+        .card.brick { border-color: var(--brick-color); }
+        .card.gem { border-color: var(--gem-color); }
+        .card.recruit { border-color: var(--recruit-color); }
+
+        .card-header {
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 2px;
+            font-size: 11px;
+            line-height: 1.1;
+        }
+
+        .card-cost {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            background: #333;
+            color: white;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+        }
+
+        .card-img {
+            height: 35px;
+            background: #bdc3c7;
+            margin-bottom: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .card-desc {
+            font-size: 9px;
+            text-align: center;
+            line-height: 1.2;
+        }
+
+        .card-action {
+             margin-top: auto;
+             text-align: center;
+             color: red;
+             font-weight: bold;
+             display: none;
+        }
+        
+        .discard-mode .card {
+            opacity: 0.7;
+        }
+        .discard-mode .card:hover {
+            opacity: 1;
+            border-color: red;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            padding: 5px;
+            gap: 10px;
+        }
+
+        button {
+            background: #e67e22;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        button.discard-btn {
+            background: #c0392b;
+        }
+
+        #modal {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.85);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 100;
+            display: none; 
+        }
+        
+        #modal h1 {
+            color: white;
+        }
+
+        .notification {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s;
+            z-index: 50;
+        }
+
+        .unplayable {
+            filter: grayscale(100%);
+            opacity: 0.6;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">Две Башни (HWM)</div>
+
+<div class="game-area">
+    <!-- Enemy Zone -->
+    <div class="enemy-zone">
+        <div class="stats-panel">
+            <div class="resource-row"><div class="res-icon res-brick"></div><span id="e-prod-brick">0</span> / <span id="e-res-brick">0</span></div>
+            <div class="resource-row"><div class="res-icon res-gem"></div><span id="e-prod-gem">0</span> / <span id="e-res-gem">0</span></div>
+            <div class="resource-row"><div class="res-icon res-recruit"></div><span id="e-prod-recruit">0</span> / <span id="e-res-recruit">0</span></div>
+        </div>
+        <div class="visual-area">
+            <div class="structure wall" id="e-wall-vis" style="height: 20px;">0</div>
+            <div class="structure tower" id="e-tower-vis" style="height: 50px;">0</div>
+        </div>
+    </div>
+
+    <!-- Center Info -->
+    <div style="text-align:center; font-size: 12px; color: #aaa;">Ход: <span id="turn-indicator">Игрок</span></div>
+    <div id="notification" class="notification">Карта сыграна</div>
+
+    <!-- Player Zone -->
+    <div class="player-zone">
+        <div class="stats-panel">
+            <div class="resource-row"><div class="res-icon res-brick"></div><span id="p-prod-brick">0</span> / <span id="p-res-brick">0</span></div>
+            <div class="resource-row"><div class="res-icon res-gem"></div><span id="p-prod-gem">0</span> / <span id="p-res-gem">0</span></div>
+            <div class="resource-row"><div class="res-icon res-recruit"></div><span id="p-prod-recruit">0</span> / <span id="p-res-recruit">0</span></div>
+        </div>
+        <div class="visual-area">
+            <div class="structure wall" id="p-wall-vis" style="height: 20px;">0</div>
+            <div class="structure tower" id="p-tower-vis" style="height: 50px;">0</div>
+        </div>
+    </div>
+</div>
+
+<div class="controls">
+    <button id="discard-toggle" onclick="toggleDiscardMode()">Сброс карты</button>
+</div>
+
+<div class="hand-area" id="player-hand">
+    <!-- Cards will be injected here -->
+</div>
+
+<div id="modal">
+    <h1 id="modal-msg">Победа!</h1>
+    <button onclick="startGame()">Играть снова</button>
+</div>
+
+<script>
+/**
+ * Game Configuration and Constants
+ */
+const WIN_TOWER = 100;
+const LOSE_TOWER = 0;
+const MAX_WALL = 100; // Visual cap mostly
+
+const RES = {
+    BRICK: 'brick',
+    GEM: 'gem',
+    RECRUIT: 'recruit'
+};
+
+/**
+ * Card Database
+ * Imitating typical Arcomage/Two Towers cards
+ */
+const CARDS = [
+    // BRICK CARDS (Red)
+    { id: 1, name: "Кладка", cost: 3, type: RES.BRICK, desc: "Стена +3", effect: (o, e) => o.wall += 3 },
+    { id: 2, name: "Оборона", cost: 6, type: RES.BRICK, desc: "Стена +6", effect: (o, e) => o.wall += 6 },
+    { id: 3, name: "Велика стена", cost: 12, type: RES.BRICK, desc: "Стена +15", effect: (o, e) => o.wall += 15 },
+    { id: 4, name: "Каменоломня", cost: 7, type: RES.BRICK, desc: "Руда +1", effect: (o, e) => o.prod.brick += 1 },
+    { id: 5, name: "Фундамент", cost: 3, type: RES.BRICK, desc: "Башня +2", effect: (o, e) => o.tower += 2 },
+    { id: 6, name: "Укрепление", cost: 8, type: RES.BRICK, desc: "Стена +5, Башня +3", effect: (o, e) => { o.wall += 5; o.tower += 3; } },
+    { id: 7, name: "Вавилон", cost: 15, type: RES.BRICK, desc: "Башня +10, Враг Стена -5", effect: (o, e) => { o.tower += 10; e.wall -= 5; } },
+    { id: 8, name: "Резерв", cost: 4, type: RES.BRICK, desc: "Башня +4", effect: (o, e) => o.tower += 4 },
+    { id: 9, name: "Школа", cost: 8, type: RES.BRICK, desc: "Все приросты +1", effect: (o, e) => { o.prod.brick++; o.prod.gem++; o.prod.recruit++; } },
+    { id: 10, name: "Обвал", cost: 6, type: RES.BRICK, desc: "Враг руда -3", effect: (o, e) => e.res.brick -= 3 },
+
+    // GEM CARDS (Blue)
+    { id: 11, name: "Молния", cost: 6, type: RES.GEM, desc: "Урон башне 5", effect: (o, e) => e.tower -= 5 },
+    { id: 12, name: "Огненный шар", cost: 10, type: RES.GEM, desc: "Урон 8", effect: (o, e) => dealDamage(e, 8) },
+    { id: 13, name: "Кристалл", cost: 8, type: RES.GEM, desc: "Магия +1", effect: (o, e) => o.prod.gem += 1 },
+    { id: 14, name: "Рубин", cost: 12, type: RES.GEM, desc: "Башня +8", effect: (o, e) => o.tower += 8 },
+    { id: 15, name: "Вор", cost: 8, type: RES.GEM, desc: "Украсть по 3 ресурса", effect: (o, e) => { 
+        steal(o, e, 'brick', 3); steal(o, e, 'gem', 3); steal(o, e, 'recruit', 3); 
+    }},
+    { id: 16, name: "Шторм", cost: 12, type: RES.GEM, desc: "Урон всем стенам 8", effect: (o, e) => { o.wall -= 8; e.wall -= 8; } },
+    { id: 17, name: "Лечение", cost: 5, type: RES.GEM, desc: "Башня +5", effect: (o, e) => o.tower += 5 },
+    { id: 18, name: "Паралич", cost: 6, type: RES.GEM, desc: "Враг магия -2", effect: (o, e) => e.prod.gem = Math.max(1, e.prod.gem - 2) },
+    { id: 19, name: "Галактика", cost: 15, type: RES.GEM, desc: "Все ваши ресы +10", effect: (o, e) => { o.res.brick += 10; o.res.gem += 10; o.res.recruit += 10; } },
+    { id: 20, name: "Жертва", cost: 0, type: RES.GEM, desc: "Башня -3, Магия +2", effect: (o, e) => { o.tower -= 3; o.prod.gem += 2; } },
+
+    // RECRUIT CARDS (Green)
+    { id: 21, name: "Гоблины", cost: 4, type: RES.RECRUIT, desc: "Урон 3", effect: (o, e) => dealDamage(e, 3) },
+    { id: 22, name: "Орки", cost: 7, type: RES.RECRUIT, desc: "Урон 6", effect: (o, e) => dealDamage(e, 6) },
+    { id: 23, name: "Подземелье", cost: 6, type: RES.RECRUIT, desc: "Монстры +1", effect: (o, e) => o.prod.recruit += 1 },
+    { id: 24, name: "Таран", cost: 10, type: RES.RECRUIT, desc: "Урон стене 12", effect: (o, e) => e.wall -= 12 },
+    { id: 25, name: "Дракон", cost: 18, type: RES.RECRUIT, desc: "Урон 15", effect: (o, e) => dealDamage(e, 15) },
+    { id: 26, name: "Вампир", cost: 12, type: RES.RECRUIT, desc: "Урон 8, Враг монстры -1", effect: (o, e) => { dealDamage(e, 8); e.prod.recruit = Math.max(1, e.prod.recruit - 1); } },
+    { id: 27, name: "Лучник", cost: 8, type: RES.RECRUIT, desc: "Урон башне 4", effect: (o, e) => e.tower -= 4 },
+    { id: 28, name: "Берсерк", cost: 5, type: RES.RECRUIT, desc: "Своя стена -3, Урон 6", effect: (o, e) => { o.wall -= 3; dealDamage(e, 6); } },
+    { id: 29, name: "Саботаж", cost: 8, type: RES.RECRUIT, desc: "Враг все приросты -1", effect: (o, e) => { 
+        e.prod.brick = Math.max(1, e.prod.brick - 1);
+        e.prod.gem = Math.max(1, e.prod.gem - 1);
+        e.prod.recruit = Math.max(1, e.prod.recruit - 1);
+    }},
+    { id: 30, name: "Удача", cost: 3, type: RES.RECRUIT, desc: "Враг стена -3, вы +1 ход", effect: (o, e) => { e.wall -= 3; return "AGAIN"; } } // "AGAIN" logic needs implementing
+];
+
+/**
+ * Game State
+ */
+let player = {};
+let enemy = {};
+let playerHand = [];
+let isPlayerTurn = true;
+let discardMode = false;
+
+function initPlayer() {
+    return {
+        tower: 20,
+        wall: 10,
+        prod: { brick: 2, gem: 2, recruit: 2 },
+        res: { brick: 10, gem: 10, recruit: 10 }
+    };
+}
+
+function startGame() {
+    player = initPlayer();
+    enemy = initPlayer();
+    playerHand = [];
+    document.getElementById('modal').style.display = 'none';
+    isPlayerTurn = true;
+    discardMode = false;
+    
+    // Initial draw
+    for(let i=0; i<6; i++) {
+        playerHand.push(drawCard());
+    }
+    
+    updateUI();
+}
+
+function drawCard() {
+    const idx = Math.floor(Math.random() * CARDS.length);
+    return CARDS[idx];
+}
+
+function dealDamage(target, amount) {
+    if (target.wall >= amount) {
+        target.wall -= amount;
+    } else {
+        let remainder = amount - target.wall;
+        target.wall = 0;
+        target.tower -= remainder;
+    }
+}
+
+function steal(recipient, victim, type, amount) {
+    let actual = Math.min(victim.res[type], amount);
+    victim.res[type] -= actual;
+    recipient.res[type] += actual;
+}
+
+/**
+ * Game Loop & Logic
+ */
+function playCard(index) {
+    if (!isPlayerTurn) return;
+    
+    const card = playerHand[index];
+    
+    if (discardMode) {
+        playerHand.splice(index, 1);
+        playerHand.push(drawCard());
+        discardMode = false;
+        endTurn();
+        return;
+    }
+
+    if (!canAfford(player, card)) {
+        showNotification("Не хватает ресурсов!");
+        return;
+    }
+
+    // Pay cost
+    player.res[card.type] -= card.cost;
+
+    // Execute effect
+    const result = card.effect(player, enemy);
+    
+    // Check limits
+    normalizeStats(player);
+    normalizeStats(enemy);
+
+    showNotification(`Вы сыграли: ${card.name}`);
+
+    // Remove and redraw
+    playerHand.splice(index, 1);
+    playerHand.push(drawCard());
+
+    updateUI();
+    checkWinCondition();
+
+    if (result !== "AGAIN" && document.getElementById('modal').style.display === 'none') {
+        endTurn();
+    } else {
+         updateUI(); // Just update if playing again
+    }
+}
+
+function endTurn() {
+    isPlayerTurn = false;
+    document.getElementById('turn-indicator').innerText = "Враг";
+    document.getElementById('discard-toggle').style.display = 'none';
+    updateUI();
+
+    setTimeout(() => {
+        enemyTurn();
+    }, 1500);
+}
+
+function enemyTurn() {
+    // Generate resources for enemy before acting (or after? Standard Arcomage is generate -> play)
+    // Actually standard is: Generate -> Play -> Draw.
+    // Wait, in my player logic I didn't generate.
+    // Let's fix loop: Start Turn -> Generate -> Action -> End.
+    
+    // Let's do generation at start of turn logic.
+    // Apply enemy generation now since it's their turn start
+    applyProduction(enemy);
+    updateUI();
+
+    // AI Logic
+    // Try to win or prevent loss
+    // Simple greedy AI: Play playable card with highest cost (heuristic for power)
+    // Or prioritize damage if enemy tower low
+    
+    let playableCards = [];
+    // Enemy doesn't persist hand in this simple version, we simulate a hand or just pick random card
+    // Better to simulate hand for fairness
+    if (!enemy.hand) {
+        enemy.hand = [];
+        for(let i=0; i<6; i++) enemy.hand.push(drawCard());
+    }
+
+    let played = false;
+    
+    // 1. Can win?
+    // 2. Can play high value?
+    
+    // Filter affordable
+    let affordable = enemy.hand.map((c, i) => ({card: c, idx: i})).filter(o => canAfford(enemy, o.card));
+    
+    if (affordable.length > 0) {
+        // Pick random affordable for variety, or expensive one
+        let pick = affordable[Math.floor(Math.random() * affordable.length)];
+        
+        enemy.res[pick.card.type] -= pick.card.cost;
+        let res = pick.card.effect(enemy, player);
+        normalizeStats(player);
+        normalizeStats(enemy);
+        
+        showNotification(`Враг сыграл: ${pick.card.name}`);
+        
+        // Refill hand
+        enemy.hand.splice(pick.idx, 1);
+        enemy.hand.push(drawCard());
+        
+        played = true;
+        if (res === "AGAIN") {
+             // Enemy plays again
+             updateUI();
+             checkWinCondition();
+             if (document.getElementById('modal').style.display === 'none') {
+                 setTimeout(enemyTurn, 1500);
+                 return;
+             }
+        }
+    } else {
+        // Discard
+        // Remove lowest cost or random
+        enemy.hand.splice(0, 1);
+        enemy.hand.push(drawCard());
+        showNotification("Враг сбросил карту");
+    }
+
+    updateUI();
+    checkWinCondition();
+
+    if (document.getElementById('modal').style.display === 'none') {
+        // Pass turn back to player
+        isPlayerTurn = true;
+        applyProduction(player); // Player Start Turn
+        document.getElementById('turn-indicator').innerText = "Игрок";
+        document.getElementById('discard-toggle').style.display = 'inline-block';
+        updateUI();
+    }
+}
+
+function applyProduction(p) {
+    p.res.brick += p.prod.brick;
+    p.res.gem += p.prod.gem;
+    p.res.recruit += p.prod.recruit;
+}
+
+function canAfford(p, card) {
+    return p.res[card.type] >= card.cost;
+}
+
+function normalizeStats(p) {
+    if (p.wall < 0) p.wall = 0;
+    if (p.tower < 0) p.tower = 0;
+    if (p.res.brick < 0) p.res.brick = 0;
+    if (p.res.gem < 0) p.res.gem = 0;
+    if (p.res.recruit < 0) p.res.recruit = 0;
+    if (p.prod.brick < 1) p.prod.brick = 1; // Min production 1 usually
+}
+
+function checkWinCondition() {
+    if (player.tower >= WIN_TOWER || enemy.tower <= LOSE_TOWER) {
+        gameOver(true);
+    } else if (enemy.tower >= WIN_TOWER || player.tower <= LOSE_TOWER) {
+        gameOver(false);
+    }
+}
+
+function gameOver(playerWon) {
+    const modal = document.getElementById('modal');
+    const msg = document.getElementById('modal-msg');
+    msg.innerText = playerWon ? "Победа!" : "Поражение!";
+    msg.style.color = playerWon ? "#2ecc71" : "#e74c3c";
+    modal.style.display = 'flex';
+    isPlayerTurn = false;
+}
+
+/**
+ * UI Updates
+ */
+function updateUI() {
+    // Stats
+    updateStats('p', player);
+    updateStats('e', enemy);
+
+    // Visuals (Tower height scaling)
+    // Max height in px is roughly 120px for tower, 80 for wall in visual-area
+    // We map 0-100 stat to 0-100% height
+    setVisualHeight('p-tower-vis', player.tower, WIN_TOWER);
+    setVisualHeight('p-wall-vis', player.wall, 50); // Visual cap for wall
+    setVisualHeight('e-tower-vis', enemy.tower, WIN_TOWER);
+    setVisualHeight('e-wall-vis', enemy.wall, 50);
+
+    // Hand
+    const handContainer = document.getElementById('player-hand');
+    handContainer.innerHTML = '';
+    
+    playerHand.forEach((card, index) => {
+        const el = document.createElement('div');
+        el.className = `card ${card.type}`;
+        if (!canAfford(player, card) && !discardMode) el.classList.add('unplayable');
+        
+        let icon = '';
+        if (card.type === RES.BRICK) icon = '🧱';
+        if (card.type === RES.GEM) icon = '💎';
+        if (card.type === RES.RECRUIT) icon = '🐾';
+
+        el.innerHTML = `
+            <div class="card-cost">${card.cost}</div>
+            <div class="card-header">${card.name}</div>
+            <div class="card-img">${icon}</div>
+            <div class="card-desc">${card.desc}</div>
+        `;
+        el.onclick = () => playCard(index);
+        handContainer.appendChild(el);
+    });
+
+    const discardBtn = document.getElementById('discard-toggle');
+    if (discardMode) {
+        discardBtn.innerText = "Отмена сброса";
+        discardBtn.classList.add('discard-btn');
+        document.body.classList.add('discard-mode');
+    } else {
+        discardBtn.innerText = "Сброс карты";
+        discardBtn.classList.remove('discard-btn');
+        document.body.classList.remove('discard-mode');
+    }
+}
+
+function updateStats(prefix, data) {
+    document.getElementById(`${prefix}-prod-brick`).innerText = data.prod.brick;
+    document.getElementById(`${prefix}-res-brick`).innerText = data.res.brick;
+    document.getElementById(`${prefix}-prod-gem`).innerText = data.prod.gem;
+    document.getElementById(`${prefix}-res-gem`).innerText = data.res.gem;
+    document.getElementById(`${prefix}-prod-recruit`).innerText = data.prod.recruit;
+    document.getElementById(`${prefix}-res-recruit`).innerText = data.res.recruit;
+
+    document.getElementById(`${prefix}-tower-vis`).innerText = data.tower;
+    document.getElementById(`${prefix}-wall-vis`).innerText = data.wall;
+}
+
+function setVisualHeight(id, value, max) {
+    const el = document.getElementById(id);
+    let h = (value / max) * 100; // percent
+    if (h > 100) h = 100;
+    if (h < 15) h = 15; // min height for text
+    el.style.height = `${h}px`; // In flex container this might need adjustments, using px for simplicity in prototype or % if container fixed
+    // The container visual-area is flex, aligning items to bottom.
+    // Let's use % of container height which is defined.
+    // Actually visual-area has height 100%. 
+    el.style.height = `${h}%`;
+}
+
+function toggleDiscardMode() {
+    if (!isPlayerTurn) return;
+    discardMode = !discardMode;
+    updateUI();
+}
+
+function showNotification(text) {
+    const n = document.getElementById('notification');
+    n.innerText = text;
+    n.style.opacity = 1;
+    setTimeout(() => {
+        n.style.opacity = 0;
+    }, 1000);
+}
+
+// Start
+startGame();
+
+</script>
+</body>
+</html>
