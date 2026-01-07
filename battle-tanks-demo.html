@@ -651,12 +651,12 @@
             {
                 map: [
                     "################",
-                    "#S            S#",
+                    "#E            E#",
                     "#  BB    BB    #",
                     "#  BB    BB    #",
                     "#              #",
                     "#     BB       #",
-                    "#     BB       #",
+                    "#E    BB      E#",
                     "#              #",
                     "#  BBBBBBBB    #",
                     "#              #",
@@ -673,12 +673,12 @@
             {
                 map: [
                     "################",
-                    "#S     SS     S#",
+                    "#E     SS     E#",
                     "#  BB      BB  #",
                     "#  BB  BB  BB  #",
                     "#      BB      #",
                     "#  SS      SS  #",
-                    "#              #",
+                    "#E            E#",
                     "#  BBBBBBBBBB  #",
                     "#              #",
                     "#  SS      SS  #",
@@ -695,12 +695,12 @@
             {
                 map: [
                     "################",
-                    "#S   SSSS    S #",
+                    "#E   SSSS     E#",
                     "# BB      BB   #",
                     "# BB      BB   #",
                     "#    BBBB      #",
                     "#SS        SS  #",
-                    "#              #",
+                    "#E            E#",
                     "#  BBBBBBBBBB  #",
                     "#  B        B  #",
                     "#SS   BBBB  SS #",
@@ -717,7 +717,7 @@
             {
                 map: [
                     "################",
-                    "#S  S    S   S #",
+                    "#E  E    E    E#",
                     "# SSSSSSSSSSSS #",
                     "#              #",
                     "# BB BB  BB BB #",
@@ -739,12 +739,12 @@
             {
                 map: [
                     "################",
-                    "#S S  SS  S  S #",
+                    "#E E  SS  E   E#",
                     "# BB SSSS BB   #",
                     "#    SSSS      #",
                     "# SS      SS   #",
                     "#   BBBBBB     #",
-                    "#   B    B     #",
+                    "#E  B    B    E#",
                     "# SSB    BSS   #",
                     "#   B    B     #",
                     "#   BBBBBB     #",
@@ -879,8 +879,8 @@
                 this.totalEnemies = level.enemies;
                 this.remainingEnemies = level.enemies;
                 this.spawnedEnemies = 0;
-                this.spawnTimer = 100;
-                this.spawnCooldown = 150;
+                this.spawnTimer = 60; // Первый враг появится быстро
+                this.spawnCooldown = 120; // 2 секунды между спавнами
                 this.maxActiveEnemies = 3;
                 this.kills = 0;
                 this.lives = 3;
@@ -914,6 +914,9 @@
                                 break;
                             case 'S':
                                 this.steel.push({ x: px, y: py, w: this.tileSize, h: this.tileSize });
+                                break;
+                            case 'E':
+                                // Точка спавна врагов (пустая клетка)
                                 this.spawnPoints.push({ x: px, y: py, ready: false, timer: 0 });
                                 break;
                             case 'H':
@@ -964,8 +967,27 @@
 
             createBoss() {
                 const template = BOSSES[LEVELS[this.currentLevel].boss];
-                const spawnX = 7 * this.tileSize;
-                const spawnY = 2 * this.tileSize;
+                
+                // Найти свободное место для босса в верхней части карты
+                let spawnX = 7 * this.tileSize;
+                let spawnY = 3 * this.tileSize;
+                
+                // Проверить и найти свободное место
+                for (let attempts = 0; attempts < 20; attempts++) {
+                    const testX = (3 + Math.floor(Math.random() * 10)) * this.tileSize;
+                    const testY = (2 + Math.floor(Math.random() * 3)) * this.tileSize;
+                    const testTank = { 
+                        x: testX, 
+                        y: testY, 
+                        width: this.tileSize * 0.9 * template.size, 
+                        height: this.tileSize * 0.9 * template.size 
+                    };
+                    if (!this.checkTankCollision(testTank)) {
+                        spawnX = testX;
+                        spawnY = testY;
+                        break;
+                    }
+                }
                 
                 this.boss = {
                     ...this.createTank(spawnX, spawnY, 'down', false, template),
@@ -980,6 +1002,9 @@
                     abilityInterval: 180,
                     hasShield: false
                 };
+
+                // Эффект появления босса
+                this.createExplosion(spawnX, spawnY, true, '#ff5722');
 
                 document.getElementById('bossHpContainer').classList.add('visible');
                 document.getElementById('bossNameDisplay').textContent = `${template.icon} ${template.name}`;
@@ -1120,17 +1145,16 @@
             updateSpawns(dt) {
                 this.spawnTimer += dt;
                 
+                const canSpawn = this.spawnedEnemies < this.totalEnemies && 
+                                 this.enemies.length < this.maxActiveEnemies;
+                
                 // Update spawn point indicators
                 this.spawnPoints.forEach(sp => {
-                    const nearReady = this.spawnTimer > this.spawnCooldown - 60 && 
-                                      this.spawnedEnemies < this.totalEnemies &&
-                                      this.enemies.length < this.maxActiveEnemies;
+                    const nearReady = this.spawnTimer > this.spawnCooldown - 40 && canSpawn;
                     sp.ready = nearReady;
                 });
 
-                if (this.spawnTimer > this.spawnCooldown && 
-                    this.spawnedEnemies < this.totalEnemies && 
-                    this.enemies.length < this.maxActiveEnemies) {
+                if (this.spawnTimer > this.spawnCooldown && canSpawn) {
                     this.spawnEnemy();
                     this.spawnTimer = 0;
                 }
@@ -1483,18 +1507,37 @@
             }
 
             spawnEnemy() {
+                // Фильтруем точки спавна где нет других танков
                 const validSpawns = this.spawnPoints.filter(sp => {
-                    const testTank = { x: sp.x, y: sp.y, width: this.tileSize * 0.9, height: this.tileSize * 0.9 };
-                    return !this.checkTankCollision(testTank);
+                    const testTank = { 
+                        x: sp.x + 2, 
+                        y: sp.y + 2, 
+                        width: this.tileSize * 0.9 - 4, 
+                        height: this.tileSize * 0.9 - 4 
+                    };
+                    
+                    // Проверяем только коллизию с игроком и другими врагами
+                    if (this.player && this.rectCollision(testTank, this.player)) return false;
+                    for (const enemy of this.enemies) {
+                        if (this.rectCollision(testTank, enemy)) return false;
+                    }
+                    return true;
                 });
 
-                if (validSpawns.length === 0) return;
+                if (validSpawns.length === 0) {
+                    console.log('No valid spawn points available');
+                    return;
+                }
 
                 const spawn = validSpawns[Math.floor(Math.random() * validSpawns.length)];
-                const enemy = this.createTank(spawn.x, spawn.y, 'down', false);
+                const enemy = this.createTank(spawn.x + 2, spawn.y + 2, 'down', false);
                 enemy.spawnEffect = 30;
                 this.enemies.push(enemy);
                 this.spawnedEnemies++;
+                
+                // Эффект появления
+                this.createExplosion(spawn.x, spawn.y, false, '#f44336');
+                
                 this.updateUI();
             }
 
@@ -1744,13 +1787,36 @@
 
                 const ts = this.tileSize;
 
-                // Spawn points (on steel blocks)
+                // Spawn points
                 this.spawnPoints.forEach(sp => {
+                    // Background circle for spawn point
+                    ctx.fillStyle = 'rgba(244, 67, 54, 0.15)';
+                    ctx.beginPath();
+                    ctx.arc(sp.x + ts/2, sp.y + ts/2, ts/2, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Spawn point border
+                    ctx.strokeStyle = 'rgba(244, 67, 54, 0.5)';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([4, 4]);
+                    ctx.beginPath();
+                    ctx.arc(sp.x + ts/2, sp.y + ts/2, ts/2 - 2, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                    
+                    // Pulsing effect when ready to spawn
                     if (sp.ready) {
-                        ctx.fillStyle = `rgba(244, 67, 54, ${0.3 + Math.sin(Date.now()/100) * 0.2})`;
+                        ctx.fillStyle = `rgba(244, 67, 54, ${0.4 + Math.sin(Date.now()/100) * 0.3})`;
                         ctx.beginPath();
-                        ctx.arc(sp.x + ts/2, sp.y + ts/2, ts/2 + 5, 0, Math.PI * 2);
+                        ctx.arc(sp.x + ts/2, sp.y + ts/2, ts/2 + 5 + Math.sin(Date.now()/150) * 3, 0, Math.PI * 2);
                         ctx.fill();
+                        
+                        // Warning icon
+                        ctx.fillStyle = '#f44336';
+                        ctx.font = 'bold 14px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText('⚠', sp.x + ts/2, sp.y + ts/2);
                     }
                 });
 
@@ -1773,15 +1839,6 @@
                     ctx.fillStyle = '#555';
                     ctx.fillRect(s.x + s.w/2 + 1, s.y + 2, s.w/2 - 3, s.h/2 - 3);
                     ctx.fillRect(s.x + 2, s.y + s.h/2 + 1, s.w/2 - 3, s.h/2 - 3);
-                    
-                    // Spawn point indicator
-                    const isSpawn = this.spawnPoints.some(sp => sp.x === s.x && sp.y === s.y);
-                    if (isSpawn) {
-                        ctx.fillStyle = 'rgba(244, 67, 54, 0.3)';
-                        ctx.beginPath();
-                        ctx.arc(s.x + ts/2, s.y + ts/2, 8, 0, Math.PI * 2);
-                        ctx.fill();
-                    }
                 });
 
                 // Walls
