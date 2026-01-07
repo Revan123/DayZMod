@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>King of Thieves - Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        .game-wrapper {
+            width: 100%;
+            max-width: 800px;
+            padding: 10px;
+        }
+
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            background: rgba(0,0,0,0.5);
+            border-radius: 10px;
+            margin-bottom: 10px;
+            color: white;
+            font-size: clamp(0.9rem, 3vw, 1.2rem);
+        }
+
+        .game-title {
+            color: #ffd700;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .stats {
+            display: flex;
+            gap: 20px;
+        }
+
+        .stat {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .stat-icon {
+            font-size: 1.2em;
+        }
+
+        .game-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16/10;
+            max-height: 70vh;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(0,0,0,0.5);
+        }
+
+        #gameCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            background: #2d2d44;
+        }
+
+        .controls-hint {
+            text-align: center;
+            color: #aaa;
+            margin-top: 15px;
+            font-size: clamp(0.8rem, 2.5vw, 1rem);
+        }
+
+        .controls-hint span {
+            color: #ffd700;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        .overlay.visible {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .overlay-title {
+            font-size: clamp(2rem, 8vw, 4rem);
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px currentColor;
+        }
+
+        .overlay-title.win {
+            color: #ffd700;
+        }
+
+        .overlay-title.lose {
+            color: #ff4444;
+        }
+
+        .overlay-stats {
+            color: white;
+            font-size: clamp(1rem, 3vw, 1.5rem);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .btn {
+            padding: 15px 40px;
+            font-size: clamp(1rem, 3vw, 1.3rem);
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+            margin: 5px;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        .btn-play {
+            background: linear-gradient(135deg, #ffd700, #ff8c00);
+            color: #1a1a2e;
+        }
+
+        .btn-restart {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+        }
+
+        .btn-next {
+            background: linear-gradient(135deg, #2196F3, #1976D2);
+            color: white;
+        }
+
+        .level-select {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .level-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 10px;
+            border: 2px solid #ffd700;
+            background: rgba(255,215,0,0.2);
+            color: #ffd700;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .level-btn:hover {
+            background: rgba(255,215,0,0.4);
+        }
+
+        .level-btn.completed {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            border-color: #4CAF50;
+            color: white;
+        }
+
+        .mobile-jump-zone {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 50;
+        }
+
+        @media (max-width: 600px) {
+            .game-wrapper {
+                padding: 5px;
+            }
+            
+            .stats {
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-wrapper">
+        <div class="game-header">
+            <div class="game-title">👑 King of Thieves</div>
+            <div class="stats">
+                <div class="stat">
+                    <span class="stat-icon">💎</span>
+                    <span id="gemsCount">0</span>/<span id="totalGems">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-icon">🏆</span>
+                    <span>Уровень <span id="levelNum">1</span></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="game-container">
+            <canvas id="gameCanvas"></canvas>
+            <div class="mobile-jump-zone" id="jumpZone"></div>
+            
+            <!-- Start Overlay -->
+            <div class="overlay visible" id="startOverlay">
+                <div class="overlay-title win">👑 King of Thieves</div>
+                <div class="overlay-stats">
+                    Прыгай, избегай ловушек,<br>собирай драгоценности!
+                </div>
+                <button class="btn btn-play" onclick="game.start()">▶️ ИГРАТЬ</button>
+                <div class="level-select" id="levelSelect"></div>
+            </div>
+
+            <!-- Win Overlay -->
+            <div class="overlay" id="winOverlay">
+                <div class="overlay-title win">🎉 ПОБЕДА!</div>
+                <div class="overlay-stats" id="winStats"></div>
+                <div>
+                    <button class="btn btn-restart" onclick="game.restart()">🔄 Заново</button>
+                    <button class="btn btn-next" onclick="game.nextLevel()">➡️ Дальше</button>
+                </div>
+            </div>
+
+            <!-- Lose Overlay -->
+            <div class="overlay" id="loseOverlay">
+                <div class="overlay-title lose">💀 ПРОВАЛ!</div>
+                <div class="overlay-stats">Попробуй ещё раз!</div>
+                <button class="btn btn-restart" onclick="game.restart()">🔄 Заново</button>
+            </div>
+        </div>
+
+        <div class="controls-hint">
+            <span>Касание</span> или <span>Пробел</span> — прыжок | 
+            <span>Двойное</span> — двойной прыжок
+        </div>
+    </div>
+
+    <script>
+        // Level definitions
+        const LEVELS = [
+            {
+                // Level 1 - Tutorial
+                platforms: [
+                    { x: 0, y: 520, w: 200, h: 80 },
+                    { x: 250, y: 480, w: 150, h: 20 },
+                    { x: 450, y: 420, w: 150, h: 20 },
+                    { x: 600, y: 350, w: 200, h: 250 }
+                ],
+                gems: [
+                    { x: 300, y: 440 },
+                    { x: 500, y: 380 },
+                    { x: 700, y: 300 }
+                ],
+                traps: [],
+                chest: { x: 700, y: 295 },
+                spawn: { x: 50, y: 450 }
+            },
+            {
+                // Level 2 - Saws
+                platforms: [
+                    { x: 0, y: 520, w: 150, h: 80 },
+                    { x: 200, y: 480, w: 100, h: 20 },
+                    { x: 350, y: 440, w: 100, h: 20 },
+                    { x: 500, y: 400, w: 100, h: 20 },
+                    { x: 650, y: 360, w: 150, h: 240 }
+                ],
+                gems: [
+                    { x: 230, y: 440 },
+                    { x: 380, y: 400 },
+                    { x: 530, y: 360 }
+                ],
+                traps: [
+                    { type: 'saw', x: 170, y: 470, r: 25 },
+                    { type: 'saw', x: 320, y: 430, r: 25 },
+                    { type: 'saw', x: 470, y: 390, r: 25 }
+                ],
+                chest: { x: 720, y: 305 },
+                spawn: { x: 50, y: 450 }
+            },
+            {
+                // Level 3 - Spikes and saws
+                platforms: [
+                    { x: 0, y: 520, w: 120, h: 80 },
+                    { x: 0, y: 300, w: 20, h: 220 }, // left wall
+                    { x: 150, y: 400, w: 120, h: 20, spikes: 'top' },
+                    { x: 150, y: 250, w: 120, h: 20 },
+                    { x: 320, y: 320, w: 100, h: 20 },
+                    { x: 470, y: 250, w: 100, h: 20 },
+                    { x: 620, y: 320, w: 180, h: 280 }
+                ],
+                gems: [
+                    { x: 200, y: 210 },
+                    { x: 360, y: 280 },
+                    { x: 510, y: 210 },
+                    { x: 700, y: 270 }
+                ],
+                traps: [
+                    { type: 'saw', x: 280, y: 230, r: 25 },
+                    { type: 'saw', x: 430, y: 300, r: 25 },
+                    { type: 'spikes', x: 150, y: 385, w: 120 },
+                    { type: 'laser', x: 580, y: 320, h: 200, interval: 2000 }
+                ],
+                chest: { x: 700, y: 265 },
+                spawn: { x: 50, y: 450 }
+            },
+            {
+                // Level 4 - Vertical challenge
+                platforms: [
+                    { x: 0, y: 520, w: 100, h: 80 },
+                    { x: 0, y: 200, w: 20, h: 320 }, // left wall
+                    { x: 130, y: 450, w: 80, h: 20 },
+                    { x: 50, y: 350, w: 80, h: 20 },
+                    { x: 160, y: 280, w: 80, h: 20 },
+                    { x: 280, y: 350, w: 100, h: 20 },
+                    { x: 420, y: 280, w: 100, h: 20 },
+                    { x: 560, y: 200, w: 80, h: 20 },
+                    { x: 680, y: 280, w: 120, h: 320 },
+                    { x: 780, y: 200, w: 20, h: 400 } // right wall
+                ],
+                gems: [
+                    { x: 160, y: 410 },
+                    { x: 80, y: 310 },
+                    { x: 190, y: 240 },
+                    { x: 320, y: 310 },
+                    { x: 460, y: 240 },
+                    { x: 590, y: 160 }
+                ],
+                traps: [
+                    { type: 'saw', x: 230, y: 420, r: 25 },
+                    { type: 'saw', x: 130, y: 320, r: 25 },
+                    { type: 'saw', x: 250, y: 250, r: 25 },
+                    { type: 'saw', x: 390, y: 320, r: 25 },
+                    { type: 'saw', x: 530, y: 250, r: 25 },
+                    { type: 'laser', x: 650, y: 200, h: 80, interval: 1500 }
+                ],
+                chest: { x: 720, y: 225 },
+                spawn: { x: 50, y: 450 }
+            },
+            {
+                // Level 5 - The Gauntlet
+                platforms: [
+                    { x: 0, y: 550, w: 80, h: 50 },
+                    { x: 0, y: 300, w: 20, h: 250 },
+                    { x: 120, y: 500, w: 60, h: 20 },
+                    { x: 220, y: 450, w: 60, h: 20 },
+                    { x: 320, y: 400, w: 60, h: 20 },
+                    { x: 220, y: 300, w: 60, h: 20 },
+                    { x: 320, y: 230, w: 60, h: 20 },
+                    { x: 420, y: 300, w: 60, h: 20 },
+                    { x: 520, y: 230, w: 60, h: 20 },
+                    { x: 620, y: 300, w: 60, h: 20 },
+                    { x: 700, y: 400, w: 100, h: 200 },
+                    { x: 780, y: 200, w: 20, h: 400 }
+                ],
+                gems: [
+                    { x: 140, y: 460 },
+                    { x: 240, y: 410 },
+                    { x: 340, y: 360 },
+                    { x: 240, y: 260 },
+                    { x: 340, y: 190 },
+                    { x: 440, y: 260 },
+                    { x: 540, y: 190 },
+                    { x: 640, y: 260 }
+                ],
+                traps: [
+                    { type: 'saw', x: 100, y: 470, r: 20 },
+                    { type: 'saw', x: 200, y: 420, r: 20 },
+                    { type: 'saw', x: 300, y: 370, r: 20 },
+                    { type: 'saw', x: 390, y: 270, r: 20 },
+                    { type: 'saw', x: 490, y: 200, r: 20 },
+                    { type: 'saw', x: 590, y: 270, r: 20 },
+                    { type: 'laser', x: 400, y: 350, h: 100, interval: 1200 },
+                    { type: 'laser', x: 680, y: 300, h: 100, interval: 1500 }
+                ],
+                chest: { x: 730, y: 345 },
+                spawn: { x: 40, y: 480 }
+            }
+        ];
+
+        class Game {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.currentLevel = 0;
+                this.completedLevels = this.loadProgress();
+                this.isRunning = false;
+                this.lastTime = 0;
+                
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+                
+                this.setupControls();
+                this.updateLevelSelect();
+                this.loadLevel(this.currentLevel);
+                this.render();
+            }
+
+            resize() {
+                const container = this.canvas.parentElement;
+                const rect = container.getBoundingClientRect();
+                this.canvas.width = 800;
+                this.canvas.height = 600;
+                this.scale = rect.width / 800;
+            }
+
+            setupControls() {
+                // Keyboard
+                document.addEventListener('keydown', (e) => {
+                    if (e.code === 'Space' || e.code === 'ArrowUp') {
+                        e.preventDefault();
+                        this.jump();
+                    }
+                });
+
+                // Touch/Click
+                const jumpZone = document.getElementById('jumpZone');
+                jumpZone.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    this.jump();
+                });
+                jumpZone.addEventListener('mousedown', (e) => {
+                    this.jump();
+                });
+            }
+
+            loadProgress() {
+                try {
+                    return JSON.parse(localStorage.getItem('kotProgress')) || [];
+                } catch {
+                    return [];
+                }
+            }
+
+            saveProgress() {
+                localStorage.setItem('kotProgress', JSON.stringify(this.completedLevels));
+            }
+
+            updateLevelSelect() {
+                const select = document.getElementById('levelSelect');
+                select.innerHTML = '';
+                LEVELS.forEach((_, i) => {
+                    const btn = document.createElement('button');
+                    btn.className = 'level-btn' + (this.completedLevels.includes(i) ? ' completed' : '');
+                    btn.textContent = i + 1;
+                    btn.onclick = () => {
+                        this.currentLevel = i;
+                        this.loadLevel(i);
+                        this.start();
+                    };
+                    select.appendChild(btn);
+                });
+            }
+
+            loadLevel(index) {
+                const level = LEVELS[index];
+                document.getElementById('levelNum').textContent = index + 1;
+                
+                this.player = {
+                    x: level.spawn.x,
+                    y: level.spawn.y,
+                    vx: 3,
+                    vy: 0,
+                    width: 30,
+                    height: 40,
+                    onGround: false,
+                    jumpCount: 0,
+                    maxJumps: 2,
+                    facingRight: true,
+                    animFrame: 0,
+                    animTimer: 0
+                };
+
+                this.platforms = level.platforms.map(p => ({ ...p }));
+                this.gems = level.gems.map(g => ({ ...g, collected: false, bobOffset: Math.random() * Math.PI * 2 }));
+                this.traps = level.traps.map(t => ({ 
+                    ...t, 
+                    angle: 0,
+                    laserOn: true,
+                    laserTimer: 0
+                }));
+                this.chest = { ...level.chest, opened: false };
+                
+                this.collectedGems = 0;
+                this.totalGems = this.gems.length;
+                document.getElementById('gemsCount').textContent = '0';
+                document.getElementById('totalGems').textContent = this.totalGems;
+            }
+
+            start() {
+                document.getElementById('startOverlay').classList.remove('visible');
+                document.getElementById('winOverlay').classList.remove('visible');
+                document.getElementById('loseOverlay').classList.remove('visible');
+                
+                this.isRunning = true;
+                this.lastTime = performance.now();
+                this.gameLoop();
+            }
+
+            restart() {
+                this.loadLevel(this.currentLevel);
+                this.start();
+            }
+
+            nextLevel() {
+                if (this.currentLevel < LEVELS.length - 1) {
+                    this.currentLevel++;
+                    this.loadLevel(this.currentLevel);
+                    this.start();
+                } else {
+                    // All levels completed
+                    document.getElementById('winOverlay').classList.remove('visible');
+                    document.getElementById('startOverlay').classList.add('visible');
+                }
+            }
+
+            jump() {
+                if (!this.isRunning) return;
+                
+                if (this.player.jumpCount < this.player.maxJumps) {
+                    this.player.vy = -12;
+                    this.player.jumpCount++;
+                    this.player.onGround = false;
+                }
+            }
+
+            gameLoop() {
+                if (!this.isRunning) return;
+
+                const now = performance.now();
+                const dt = Math.min((now - this.lastTime) / 16.67, 3);
+                this.lastTime = now;
+
+                this.update(dt);
+                this.render();
+
+                requestAnimationFrame(() => this.gameLoop());
+            }
+
+            update(dt) {
+                const p = this.player;
+
+                // Gravity
+                p.vy += 0.6 * dt;
+                if (p.vy > 15) p.vy = 15;
+
+                // Movement
+                p.x += p.vx * dt;
+                p.y += p.vy * dt;
+
+                // Animation
+                p.animTimer += dt;
+                if (p.animTimer > 8) {
+                    p.animTimer = 0;
+                    p.animFrame = (p.animFrame + 1) % 4;
+                }
+
+                // Platform collision
+                p.onGround = false;
+                for (const plat of this.platforms) {
+                    // Top collision
+                    if (p.vy > 0 &&
+                        p.x + p.width > plat.x && p.x < plat.x + plat.w &&
+                        p.y + p.height > plat.y && p.y + p.height < plat.y + 20) {
+                        p.y = plat.y - p.height;
+                        p.vy = 0;
+                        p.onGround = true;
+                        p.jumpCount = 0;
+                    }
+                    
+                    // Bottom collision
+                    if (p.vy < 0 &&
+                        p.x + p.width > plat.x && p.x < plat.x + plat.w &&
+                        p.y < plat.y + plat.h && p.y > plat.y + plat.h - 20) {
+                        p.y = plat.y + plat.h;
+                        p.vy = 0;
+                    }
+
+                    // Side collisions (walls)
+                    if (p.y + p.height > plat.y + 5 && p.y < plat.y + plat.h - 5) {
+                        // Right wall
+                        if (p.vx > 0 && p.x + p.width > plat.x && p.x < plat.x) {
+                            p.x = plat.x - p.width;
+                            p.vx = -p.vx;
+                            p.facingRight = false;
+                        }
+                        // Left wall
+                        if (p.vx < 0 && p.x < plat.x + plat.w && p.x + p.width > plat.x + plat.w) {
+                            p.x = plat.x + plat.w;
+                            p.vx = -p.vx;
+                            p.facingRight = true;
+                        }
+                    }
+                }
+
+                // Screen bounds
+                if (p.x < 0) {
+                    p.x = 0;
+                    p.vx = Math.abs(p.vx);
+                    p.facingRight = true;
+                }
+                if (p.x + p.width > 800) {
+                    p.x = 800 - p.width;
+                    p.vx = -Math.abs(p.vx);
+                    p.facingRight = false;
+                }
+
+                // Fall death
+                if (p.y > 650) {
+                    this.die();
+                    return;
+                }
+
+                // Gem collection
+                for (const gem of this.gems) {
+                    if (!gem.collected) {
+                        const dx = (p.x + p.width/2) - gem.x;
+                        const dy = (p.y + p.height/2) - gem.y;
+                        if (Math.sqrt(dx*dx + dy*dy) < 30) {
+                            gem.collected = true;
+                            this.collectedGems++;
+                            document.getElementById('gemsCount').textContent = this.collectedGems;
+                        }
+                    }
+                }
+
+                // Trap updates and collision
+                for (const trap of this.traps) {
+                    if (trap.type === 'saw') {
+                        trap.angle += 0.1 * dt;
+                        const dx = (p.x + p.width/2) - trap.x;
+                        const dy = (p.y + p.height/2) - trap.y;
+                        if (Math.sqrt(dx*dx + dy*dy) < trap.r + 15) {
+                            this.die();
+                            return;
+                        }
+                    } else if (trap.type === 'spikes') {
+                        if (p.x + p.width > trap.x && p.x < trap.x + trap.w &&
+                            p.y + p.height > trap.y && p.y + p.height < trap.y + 20) {
+                            this.die();
+                            return;
+                        }
+                    } else if (trap.type === 'laser') {
+                        trap.laserTimer += dt * 16.67;
+                        if (trap.laserTimer > trap.interval) {
+                            trap.laserTimer = 0;
+                            trap.laserOn = !trap.laserOn;
+                        }
+                        if (trap.laserOn) {
+                            if (p.x + p.width > trap.x - 5 && p.x < trap.x + 5 &&
+                                p.y + p.height > trap.y && p.y < trap.y + trap.h) {
+                                this.die();
+                                return;
+                            }
+                        }
+                    }
+                }
+
+                // Chest collision (win)
+                if (!this.chest.opened) {
+                    const dx = (p.x + p.width/2) - (this.chest.x + 20);
+                    const dy = (p.y + p.height/2) - (this.chest.y + 20);
+                    if (Math.sqrt(dx*dx + dy*dy) < 40) {
+                        this.win();
+                    }
+                }
+            }
+
+            die() {
+                this.isRunning = false;
+                document.getElementById('loseOverlay').classList.add('visible');
+            }
+
+            win() {
+                this.isRunning = false;
+                this.chest.opened = true;
+                
+                if (!this.completedLevels.includes(this.currentLevel)) {
+                    this.completedLevels.push(this.currentLevel);
+                    this.saveProgress();
+                    this.updateLevelSelect();
+                }
+
+                const stats = document.getElementById('winStats');
+                stats.innerHTML = `
+                    💎 Собрано: ${this.collectedGems}/${this.totalGems}<br>
+                    ${this.collectedGems === this.totalGems ? '⭐ ИДЕАЛЬНО!' : ''}
+                `;
+                document.getElementById('winOverlay').classList.add('visible');
+            }
+
+            render() {
+                const ctx = this.ctx;
+                ctx.clearRect(0, 0, 800, 600);
+
+                // Background gradient
+                const gradient = ctx.createLinearGradient(0, 0, 0, 600);
+                gradient.addColorStop(0, '#1a1a3a');
+                gradient.addColorStop(1, '#2d2d5a');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, 800, 600);
+
+                // Grid pattern
+                ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+                ctx.lineWidth = 1;
+                for (let x = 0; x < 800; x += 40) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, 600);
+                    ctx.stroke();
+                }
+                for (let y = 0; y < 600; y += 40) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(800, y);
+                    ctx.stroke();
+                }
+
+                // Platforms
+                for (const plat of this.platforms) {
+                    // Main platform
+                    const platGrad = ctx.createLinearGradient(plat.x, plat.y, plat.x, plat.y + plat.h);
+                    platGrad.addColorStop(0, '#5a5a7a');
+                    platGrad.addColorStop(1, '#3a3a5a');
+                    ctx.fillStyle = platGrad;
+                    ctx.fillRect(plat.x, plat.y, plat.w, plat.h);
+                    
+                    // Platform top highlight
+                    ctx.fillStyle = '#7a7a9a';
+                    ctx.fillRect(plat.x, plat.y, plat.w, 4);
+                    
+                    // Platform border
+                    ctx.strokeStyle = '#8a8aaa';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(plat.x, plat.y, plat.w, plat.h);
+                }
+
+                // Traps
+                for (const trap of this.traps) {
+                    if (trap.type === 'saw') {
+                        ctx.save();
+                        ctx.translate(trap.x, trap.y);
+                        ctx.rotate(trap.angle);
+                        
+                        // Saw blade
+                        ctx.fillStyle = '#888';
+                        ctx.beginPath();
+                        for (let i = 0; i < 12; i++) {
+                            const angle = (i / 12) * Math.PI * 2;
+                            const r = i % 2 === 0 ? trap.r : trap.r * 0.7;
+                            const x = Math.cos(angle) * r;
+                            const y = Math.sin(angle) * r;
+                            if (i === 0) ctx.moveTo(x, y);
+                            else ctx.lineTo(x, y);
+                        }
+                        ctx.closePath();
+                        ctx.fill();
+                        
+                        // Center
+                        ctx.fillStyle = '#555';
+                        ctx.beginPath();
+                        ctx.arc(0, 0, trap.r * 0.3, 0, Math.PI * 2);
+                        ctx.fill();
+                        
+                        ctx.restore();
+                    } else if (trap.type === 'spikes') {
+                        ctx.fillStyle = '#888';
+                        const spikeCount = Math.floor(trap.w / 15);
+                        for (let i = 0; i < spikeCount; i++) {
+                            const sx = trap.x + i * 15 + 7.5;
+                            ctx.beginPath();
+                            ctx.moveTo(sx - 6, trap.y + 15);
+                            ctx.lineTo(sx, trap.y);
+                            ctx.lineTo(sx + 6, trap.y + 15);
+                            ctx.closePath();
+                            ctx.fill();
+                        }
+                    } else if (trap.type === 'laser') {
+                        // Emitters
+                        ctx.fillStyle = '#444';
+                        ctx.fillRect(trap.x - 8, trap.y - 5, 16, 10);
+                        ctx.fillRect(trap.x - 8, trap.y + trap.h - 5, 16, 10);
+                        
+                        // Laser beam
+                        if (trap.laserOn) {
+                            ctx.strokeStyle = '#ff0000';
+                            ctx.lineWidth = 4;
+                            ctx.beginPath();
+                            ctx.moveTo(trap.x, trap.y);
+                            ctx.lineTo(trap.x, trap.y + trap.h);
+                            ctx.stroke();
+                            
+                            // Glow
+                            ctx.strokeStyle = 'rgba(255,0,0,0.3)';
+                            ctx.lineWidth = 12;
+                            ctx.beginPath();
+                            ctx.moveTo(trap.x, trap.y);
+                            ctx.lineTo(trap.x, trap.y + trap.h);
+                            ctx.stroke();
+                        } else {
+                            ctx.strokeStyle = 'rgba(255,0,0,0.2)';
+                            ctx.lineWidth = 1;
+                            ctx.setLineDash([5, 5]);
+                            ctx.beginPath();
+                            ctx.moveTo(trap.x, trap.y);
+                            ctx.lineTo(trap.x, trap.y + trap.h);
+                            ctx.stroke();
+                            ctx.setLineDash([]);
+                        }
+                    }
+                }
+
+                // Gems
+                const time = Date.now() / 1000;
+                for (const gem of this.gems) {
+                    if (!gem.collected) {
+                        const bob = Math.sin(time * 3 + gem.bobOffset) * 5;
+                        
+                        ctx.save();
+                        ctx.translate(gem.x, gem.y + bob);
+                        
+                        // Glow
+                        ctx.fillStyle = 'rgba(0,255,255,0.2)';
+                        ctx.beginPath();
+                        ctx.arc(0, 0, 20, 0, Math.PI * 2);
+                        ctx.fill();
+                        
+                        // Diamond shape
+                        ctx.fillStyle = '#00ffff';
+                        ctx.beginPath();
+                        ctx.moveTo(0, -12);
+                        ctx.lineTo(10, 0);
+                        ctx.lineTo(0, 12);
+                        ctx.lineTo(-10, 0);
+                        ctx.closePath();
+                        ctx.fill();
+                        
+                        // Shine
+                        ctx.fillStyle = 'rgba(255,255,255,0.6)';
+                        ctx.beginPath();
+                        ctx.moveTo(-2, -8);
+                        ctx.lineTo(2, -8);
+                        ctx.lineTo(0, -2);
+                        ctx.closePath();
+                        ctx.fill();
+                        
+                        ctx.restore();
+                    }
+                }
+
+                // Chest
+                const chest = this.chest;
+                ctx.save();
+                ctx.translate(chest.x, chest.y);
+                
+                // Chest body
+                ctx.fillStyle = '#8B4513';
+                ctx.fillRect(0, 15, 40, 25);
+                
+                // Chest lid
+                ctx.fillStyle = chest.opened ? '#A0522D' : '#8B4513';
+                if (chest.opened) {
+                    ctx.save();
+                    ctx.translate(0, 15);
+                    ctx.rotate(-0.5);
+                    ctx.fillRect(0, -15, 40, 15);
+                    ctx.restore();
+                } else {
+                    ctx.fillRect(0, 0, 40, 18);
+                    // Rounded top
+                    ctx.beginPath();
+                    ctx.ellipse(20, 3, 20, 8, 0, Math.PI, 0);
+                    ctx.fill();
+                }
+                
+                // Lock/decoration
+                ctx.fillStyle = '#FFD700';
+                ctx.fillRect(16, 12, 8, 10);
+                ctx.beginPath();
+                ctx.arc(20, 12, 5, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Glow if not opened
+                if (!chest.opened) {
+                    ctx.fillStyle = `rgba(255,215,0,${0.2 + Math.sin(time * 4) * 0.1})`;
+                    ctx.beginPath();
+                    ctx.arc(20, 20, 35, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                ctx.restore();
+
+                // Player
+                const p = this.player;
+                ctx.save();
+                ctx.translate(p.x + p.width/2, p.y + p.height/2);
+                if (!p.facingRight) ctx.scale(-1, 1);
+                ctx.translate(-p.width/2, -p.height/2);
+                
+                // Shadow
+                ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                ctx.beginPath();
+                ctx.ellipse(p.width/2, p.height + 2, p.width/2, 5, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Body
+                ctx.fillStyle = '#2a2a2a';
+                ctx.fillRect(5, 10, 20, 25);
+                
+                // Hood/head
+                ctx.fillStyle = '#1a1a1a';
+                ctx.beginPath();
+                ctx.arc(15, 8, 12, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Eyes (glowing)
+                ctx.fillStyle = '#ffff00';
+                ctx.beginPath();
+                ctx.ellipse(12, 6, 3, 2, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.ellipse(20, 6, 3, 2, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Legs (animated)
+                ctx.fillStyle = '#2a2a2a';
+                const legOffset = p.onGround ? Math.sin(p.animFrame * 0.8) * 5 : 0;
+                ctx.fillRect(7, 33, 6, 10 + legOffset);
+                ctx.fillRect(17, 33, 6, 10 - legOffset);
+                
+                // Cape
+                ctx.fillStyle = '#4a0080';
+                ctx.beginPath();
+                ctx.moveTo(5, 15);
+                ctx.quadraticCurveTo(-5, 30, 0, 40);
+                ctx.lineTo(5, 35);
+                ctx.closePath();
+                ctx.fill();
+                
+                ctx.restore();
+
+                // Jump indicator
+                if (this.player.jumpCount < this.player.maxJumps && this.isRunning) {
+                    const jumpsLeft = this.player.maxJumps - this.player.jumpCount;
+                    for (let i = 0; i < jumpsLeft; i++) {
+                        ctx.fillStyle = 'rgba(255,255,0,0.5)';
+                        ctx.beginPath();
+                        ctx.arc(p.x + p.width/2 - 8 + i * 16, p.y - 10, 5, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+            }
+        }
+
+        // Initialize game
+        const game = new Game();
+    </script>
+</body>
+</html>
