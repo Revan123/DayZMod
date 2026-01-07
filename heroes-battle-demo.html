@@ -1,0 +1,1524 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Heroes Battle Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #e8e8e8;
+            overflow-x: hidden;
+        }
+
+        .game-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 10px;
+        }
+
+        .game-title {
+            text-align: center;
+            font-size: clamp(1.5rem, 5vw, 2.5rem);
+            color: #ffd700;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        .battle-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .player-info, .enemy-info {
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: clamp(0.8rem, 2.5vw, 1rem);
+        }
+
+        .player-info {
+            background: linear-gradient(135deg, #1e5128, #4e9f3d);
+            border: 2px solid #8ed16c;
+        }
+
+        .enemy-info {
+            background: linear-gradient(135deg, #8b0000, #dc143c);
+            border: 2px solid #ff6b6b;
+        }
+
+        .turn-indicator {
+            background: linear-gradient(135deg, #4a0080, #8b00ff);
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            animation: pulse 1.5s infinite;
+            font-size: clamp(0.8rem, 2.5vw, 1rem);
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .battlefield {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            grid-template-rows: repeat(8, 1fr);
+            gap: 2px;
+            background: linear-gradient(180deg, #2d4a3e 0%, #1a3a2a 100%);
+            border: 4px solid #5a3d2b;
+            border-radius: 10px;
+            padding: 5px;
+            aspect-ratio: 12/8;
+            max-height: 60vh;
+            margin-bottom: 10px;
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.5);
+        }
+
+        .cell {
+            background: rgba(34, 139, 34, 0.2);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+            font-size: clamp(1rem, 3vw, 2rem);
+        }
+
+        .cell:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .cell.valid-move {
+            background: rgba(0, 255, 0, 0.3);
+            border-color: #00ff00;
+        }
+
+        .cell.valid-attack {
+            background: rgba(255, 0, 0, 0.3);
+            border-color: #ff0000;
+            animation: attackPulse 0.5s infinite;
+        }
+
+        @keyframes attackPulse {
+            0%, 100% { box-shadow: inset 0 0 5px #ff0000; }
+            50% { box-shadow: inset 0 0 15px #ff0000; }
+        }
+
+        .cell.selected {
+            background: rgba(255, 215, 0, 0.4);
+            border: 2px solid #ffd700;
+        }
+
+        .unit {
+            position: absolute;
+            width: 90%;
+            height: 90%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .unit:hover {
+            transform: scale(1.1);
+            z-index: 10;
+        }
+
+        .unit.player-unit {
+            background: linear-gradient(135deg, #1e5128, #4e9f3d);
+            border: 2px solid #8ed16c;
+            box-shadow: 0 0 10px rgba(142, 209, 108, 0.5);
+        }
+
+        .unit.enemy-unit {
+            background: linear-gradient(135deg, #8b0000, #dc143c);
+            border: 2px solid #ff6b6b;
+            box-shadow: 0 0 10px rgba(255, 107, 107, 0.5);
+        }
+
+        .unit.current-turn {
+            animation: currentTurn 1s infinite;
+        }
+
+        @keyframes currentTurn {
+            0%, 100% { box-shadow: 0 0 10px #ffd700, 0 0 20px #ffd700; }
+            50% { box-shadow: 0 0 20px #ffd700, 0 0 40px #ffd700; }
+        }
+
+        .unit-icon {
+            font-size: clamp(0.8rem, 2.5vw, 1.5rem);
+        }
+
+        .unit-count {
+            position: absolute;
+            bottom: -2px;
+            right: -2px;
+            background: #333;
+            color: #fff;
+            font-size: clamp(0.5rem, 1.5vw, 0.7rem);
+            padding: 1px 4px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+
+        .unit-hp-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: #333;
+            border-radius: 0 0 3px 3px;
+        }
+
+        .unit-hp-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff0000, #00ff00);
+            border-radius: 0 0 3px 3px;
+            transition: width 0.3s;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            font-size: clamp(0.8rem, 2.5vw, 1rem);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+            text-transform: uppercase;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-wait {
+            background: linear-gradient(135deg, #f39c12, #e67e22);
+            color: white;
+        }
+
+        .btn-defend {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+        }
+
+        .btn-ability {
+            background: linear-gradient(135deg, #9b59b6, #8e44ad);
+            color: white;
+        }
+
+        .btn-restart {
+            background: linear-gradient(135deg, #27ae60, #2ecc71);
+            color: white;
+        }
+
+        .log-container {
+            background: rgba(0,0,0,0.5);
+            border-radius: 10px;
+            padding: 10px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .log-title {
+            color: #ffd700;
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: clamp(0.9rem, 2.5vw, 1.1rem);
+        }
+
+        .log-entry {
+            font-size: clamp(0.7rem, 2vw, 0.9rem);
+            padding: 3px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .log-entry.damage {
+            color: #ff6b6b;
+        }
+
+        .log-entry.heal {
+            color: #6bff6b;
+        }
+
+        .log-entry.ability {
+            color: #b36bff;
+        }
+
+        .log-entry.info {
+            color: #6bb3ff;
+        }
+
+        .unit-tooltip {
+            display: none;
+            position: fixed;
+            background: rgba(0,0,0,0.95);
+            border: 2px solid #ffd700;
+            border-radius: 10px;
+            padding: 15px;
+            z-index: 1000;
+            max-width: 280px;
+            box-shadow: 0 0 20px rgba(255,215,0,0.3);
+        }
+
+        .unit-tooltip.visible {
+            display: block;
+        }
+
+        .tooltip-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #ffd700;
+            padding-bottom: 10px;
+        }
+
+        .tooltip-icon {
+            font-size: 2rem;
+        }
+
+        .tooltip-name {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #ffd700;
+        }
+
+        .tooltip-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px;
+            font-size: 0.9rem;
+        }
+
+        .tooltip-stat {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .tooltip-ability {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #666;
+            color: #b36bff;
+            font-style: italic;
+        }
+
+        .game-over-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        .game-over-overlay.visible {
+            display: flex;
+        }
+
+        .game-over-text {
+            font-size: clamp(2rem, 8vw, 4rem);
+            font-weight: bold;
+            text-shadow: 0 0 20px currentColor;
+            margin-bottom: 30px;
+        }
+
+        .game-over-text.victory {
+            color: #ffd700;
+        }
+
+        .game-over-text.defeat {
+            color: #dc143c;
+        }
+
+        .damage-popup {
+            position: absolute;
+            font-weight: bold;
+            font-size: 1.5rem;
+            animation: damageFloat 1s forwards;
+            pointer-events: none;
+            z-index: 100;
+            text-shadow: 2px 2px 2px black;
+        }
+
+        .damage-popup.damage {
+            color: #ff4444;
+        }
+
+        .damage-popup.heal {
+            color: #44ff44;
+        }
+
+        .damage-popup.special {
+            color: #ff44ff;
+        }
+
+        @keyframes damageFloat {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-50px) scale(1.5); }
+        }
+
+        .initiative-bar {
+            display: flex;
+            gap: 5px;
+            padding: 10px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            margin-bottom: 10px;
+            overflow-x: auto;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .initiative-unit {
+            width: 40px;
+            height: 40px;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            border: 2px solid;
+            position: relative;
+        }
+
+        .initiative-unit.player {
+            background: linear-gradient(135deg, #1e5128, #4e9f3d);
+            border-color: #8ed16c;
+        }
+
+        .initiative-unit.enemy {
+            background: linear-gradient(135deg, #8b0000, #dc143c);
+            border-color: #ff6b6b;
+        }
+
+        .initiative-unit.current {
+            box-shadow: 0 0 10px #ffd700;
+            transform: scale(1.2);
+        }
+
+        .initiative-order {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: #333;
+            color: #fff;
+            font-size: 0.6rem;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.3);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #ffd700;
+            border-radius: 4px;
+        }
+
+        @media (max-width: 600px) {
+            .battlefield {
+                aspect-ratio: 12/10;
+            }
+            
+            .controls {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background: rgba(0,0,0,0.9);
+                padding: 10px;
+                margin: 0;
+                border-radius: 0;
+                z-index: 100;
+            }
+            
+            .log-container {
+                margin-bottom: 70px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1 class="game-title">⚔️ Heroes Battle Demo ⚔️</h1>
+        
+        <div class="battle-info">
+            <div class="player-info">🛡️ Игрок</div>
+            <div class="turn-indicator" id="turnIndicator">Ваш ход</div>
+            <div class="enemy-info">💀 Противник</div>
+        </div>
+
+        <div class="initiative-bar" id="initiativeBar"></div>
+
+        <div class="battlefield" id="battlefield"></div>
+
+        <div class="controls">
+            <button class="btn btn-wait" onclick="game.wait()">⏳ Ждать</button>
+            <button class="btn btn-defend" onclick="game.defend()">🛡️ Защита</button>
+            <button class="btn btn-ability" id="abilityBtn" onclick="game.useAbility()">✨ Способность</button>
+            <button class="btn btn-restart" onclick="game.restart()">🔄 Заново</button>
+        </div>
+
+        <div class="log-container">
+            <div class="log-title">📜 Журнал боя</div>
+            <div id="battleLog"></div>
+        </div>
+    </div>
+
+    <div class="unit-tooltip" id="tooltip"></div>
+
+    <div class="game-over-overlay" id="gameOverOverlay">
+        <div class="game-over-text" id="gameOverText"></div>
+        <button class="btn btn-restart" onclick="game.restart()">🔄 Играть снова</button>
+    </div>
+
+    <script>
+        // Unit Types Definition
+        const UNIT_TYPES = {
+            // Player units
+            knight: {
+                name: 'Рыцарь',
+                icon: '⚔️',
+                hp: 50,
+                attack: 12,
+                defense: 8,
+                speed: 5,
+                range: 1,
+                count: 8,
+                ability: {
+                    name: 'Удар щитом',
+                    description: 'Оглушает врага на 1 ход',
+                    cooldown: 3,
+                    type: 'stun'
+                }
+            },
+            archer: {
+                name: 'Лучник',
+                icon: '🏹',
+                hp: 25,
+                attack: 10,
+                defense: 3,
+                speed: 6,
+                range: 6,
+                count: 12,
+                ability: {
+                    name: 'Залп стрел',
+                    description: 'Атакует всех врагов в области 3x3',
+                    cooldown: 4,
+                    type: 'aoe'
+                }
+            },
+            mage: {
+                name: 'Маг',
+                icon: '🧙',
+                hp: 20,
+                attack: 15,
+                defense: 2,
+                speed: 4,
+                range: 5,
+                count: 6,
+                ability: {
+                    name: 'Огненный шар',
+                    description: 'Наносит магический урон, игнорируя защиту',
+                    cooldown: 3,
+                    type: 'magic'
+                }
+            },
+            griffin: {
+                name: 'Грифон',
+                icon: '🦅',
+                hp: 40,
+                attack: 10,
+                defense: 5,
+                speed: 9,
+                range: 1,
+                count: 5,
+                ability: {
+                    name: 'Контратака',
+                    description: 'Всегда контратакует без ограничений',
+                    cooldown: 0,
+                    type: 'passive_counter'
+                }
+            },
+            healer: {
+                name: 'Целитель',
+                icon: '💚',
+                hp: 22,
+                attack: 5,
+                defense: 4,
+                speed: 5,
+                range: 4,
+                count: 4,
+                ability: {
+                    name: 'Исцеление',
+                    description: 'Восстанавливает здоровье союзника',
+                    cooldown: 2,
+                    type: 'heal'
+                }
+            },
+            // Enemy units
+            skeleton: {
+                name: 'Скелет',
+                icon: '💀',
+                hp: 20,
+                attack: 8,
+                defense: 4,
+                speed: 5,
+                range: 1,
+                count: 15,
+                ability: {
+                    name: 'Восстание',
+                    description: 'Восстанавливает 2 юнита при убийстве',
+                    cooldown: 0,
+                    type: 'passive_resurrect'
+                }
+            },
+            zombie: {
+                name: 'Зомби',
+                icon: '🧟',
+                hp: 35,
+                attack: 7,
+                defense: 6,
+                speed: 3,
+                range: 1,
+                count: 10,
+                ability: {
+                    name: 'Заражение',
+                    description: 'Шанс отравить цель',
+                    cooldown: 0,
+                    type: 'passive_poison'
+                }
+            },
+            vampire: {
+                name: 'Вампир',
+                icon: '🧛',
+                hp: 45,
+                attack: 14,
+                defense: 5,
+                speed: 7,
+                range: 1,
+                count: 4,
+                ability: {
+                    name: 'Вытягивание жизни',
+                    description: 'Восстанавливает HP при атаке',
+                    cooldown: 0,
+                    type: 'passive_lifesteal'
+                }
+            },
+            lich: {
+                name: 'Лич',
+                icon: '☠️',
+                hp: 30,
+                attack: 18,
+                defense: 3,
+                speed: 6,
+                range: 5,
+                count: 3,
+                ability: {
+                    name: 'Смертельное касание',
+                    description: 'Мгновенно убивает часть отряда',
+                    cooldown: 4,
+                    type: 'instant_kill'
+                }
+            },
+            demon: {
+                name: 'Демон',
+                icon: '👹',
+                hp: 60,
+                attack: 16,
+                defense: 7,
+                speed: 8,
+                range: 1,
+                count: 3,
+                ability: {
+                    name: 'Адское пламя',
+                    description: 'Наносит урон по области',
+                    cooldown: 3,
+                    type: 'aoe_fire'
+                }
+            }
+        };
+
+        class Unit {
+            constructor(type, isPlayer, x, y) {
+                const template = UNIT_TYPES[type];
+                this.type = type;
+                this.name = template.name;
+                this.icon = template.icon;
+                this.maxHp = template.hp;
+                this.currentHp = template.hp;
+                this.baseAttack = template.attack;
+                this.baseDefense = template.defense;
+                this.speed = template.speed;
+                this.range = template.range;
+                this.maxCount = template.count;
+                this.count = template.count;
+                this.ability = { ...template.ability, currentCooldown: 0 };
+                this.isPlayer = isPlayer;
+                this.x = x;
+                this.y = y;
+                this.hasActed = false;
+                this.isDefending = false;
+                this.isStunned = false;
+                this.poison = 0;
+                this.hasCounterattacked = false;
+                this.id = Math.random().toString(36).substr(2, 9);
+            }
+
+            get attack() {
+                return this.baseAttack * Math.max(1, Math.ceil(this.count / 3));
+            }
+
+            get defense() {
+                let def = this.baseDefense;
+                if (this.isDefending) def *= 1.5;
+                return Math.floor(def);
+            }
+
+            get totalHp() {
+                return (this.count - 1) * this.maxHp + this.currentHp;
+            }
+
+            takeDamage(damage, ignoreDefense = false) {
+                const actualDefense = ignoreDefense ? 0 : this.defense;
+                const actualDamage = Math.max(1, damage - actualDefense);
+                let remainingDamage = actualDamage;
+                let totalKilled = 0;
+
+                while (remainingDamage > 0 && this.count > 0) {
+                    if (remainingDamage >= this.currentHp) {
+                        remainingDamage -= this.currentHp;
+                        this.count--;
+                        totalKilled++;
+                        this.currentHp = this.maxHp;
+                    } else {
+                        this.currentHp -= remainingDamage;
+                        remainingDamage = 0;
+                    }
+                }
+
+                return { damage: actualDamage, killed: totalKilled };
+            }
+
+            heal(amount) {
+                const maxTotal = this.maxCount * this.maxHp;
+                const currentTotal = this.totalHp;
+                const healAmount = Math.min(amount, maxTotal - currentTotal);
+                
+                if (healAmount > 0) {
+                    let newTotal = currentTotal + healAmount;
+                    this.count = Math.ceil(newTotal / this.maxHp);
+                    this.currentHp = newTotal - (this.count - 1) * this.maxHp;
+                }
+                
+                return healAmount;
+            }
+
+            getDistance(target) {
+                return Math.abs(this.x - target.x) + Math.abs(this.y - target.y);
+            }
+
+            canAttack(target) {
+                return this.getDistance(target) <= this.range;
+            }
+
+            resetTurn() {
+                this.hasActed = false;
+                this.isDefending = false;
+                this.hasCounterattacked = false;
+                if (this.ability.currentCooldown > 0) {
+                    this.ability.currentCooldown--;
+                }
+                if (this.poison > 0) {
+                    const poisonDamage = Math.floor(this.maxHp * 0.1 * this.count);
+                    this.takeDamage(poisonDamage, true);
+                    this.poison--;
+                }
+            }
+        }
+
+        class Game {
+            constructor() {
+                this.gridWidth = 12;
+                this.gridHeight = 8;
+                this.playerUnits = [];
+                this.enemyUnits = [];
+                this.selectedUnit = null;
+                this.currentUnit = null;
+                this.turnOrder = [];
+                this.turnIndex = 0;
+                this.isPlayerTurn = true;
+                this.gameOver = false;
+                this.validMoves = [];
+                this.validAttacks = [];
+                this.abilityMode = false;
+                
+                this.init();
+            }
+
+            init() {
+                this.createBattlefield();
+                this.placeUnits();
+                this.calculateTurnOrder();
+                this.startTurn();
+                this.updateUI();
+            }
+
+            createBattlefield() {
+                const battlefield = document.getElementById('battlefield');
+                battlefield.innerHTML = '';
+                
+                for (let y = 0; y < this.gridHeight; y++) {
+                    for (let x = 0; x < this.gridWidth; x++) {
+                        const cell = document.createElement('div');
+                        cell.className = 'cell';
+                        cell.dataset.x = x;
+                        cell.dataset.y = y;
+                        cell.addEventListener('click', () => this.onCellClick(x, y));
+                        cell.addEventListener('mouseenter', (e) => this.showTooltip(x, y, e));
+                        cell.addEventListener('mouseleave', () => this.hideTooltip());
+                        cell.addEventListener('touchstart', (e) => this.showTooltip(x, y, e));
+                        battlefield.appendChild(cell);
+                    }
+                }
+            }
+
+            placeUnits() {
+                // Player units on the left
+                const playerTypes = ['knight', 'archer', 'mage', 'griffin', 'healer'];
+                const playerPositions = [[0, 1], [0, 3], [1, 5], [0, 6], [1, 2]];
+                
+                playerTypes.forEach((type, i) => {
+                    const unit = new Unit(type, true, playerPositions[i][0], playerPositions[i][1]);
+                    this.playerUnits.push(unit);
+                });
+
+                // Enemy units on the right
+                const enemyTypes = ['skeleton', 'zombie', 'vampire', 'lich', 'demon'];
+                const enemyPositions = [[11, 1], [11, 3], [10, 5], [11, 6], [10, 2]];
+                
+                enemyTypes.forEach((type, i) => {
+                    const unit = new Unit(type, false, enemyPositions[i][0], enemyPositions[i][1]);
+                    this.enemyUnits.push(unit);
+                });
+            }
+
+            calculateTurnOrder() {
+                const allUnits = [...this.playerUnits, ...this.enemyUnits].filter(u => u.count > 0);
+                this.turnOrder = allUnits.sort((a, b) => b.speed - a.speed);
+                this.turnIndex = 0;
+            }
+
+            startTurn() {
+                if (this.checkGameOver()) return;
+
+                // Find next unit that can act
+                while (this.turnIndex < this.turnOrder.length) {
+                    const unit = this.turnOrder[this.turnIndex];
+                    if (unit.count > 0 && !unit.hasActed) {
+                        if (unit.isStunned) {
+                            unit.isStunned = false;
+                            this.addLog(`${unit.name} оглушен и пропускает ход!`, 'info');
+                            unit.hasActed = true;
+                            this.turnIndex++;
+                            continue;
+                        }
+                        this.currentUnit = unit;
+                        this.isPlayerTurn = unit.isPlayer;
+                        this.updateTurnIndicator();
+                        this.calculateValidActions();
+                        
+                        if (!this.isPlayerTurn) {
+                            setTimeout(() => this.aiTurn(), 800);
+                        }
+                        return;
+                    }
+                    this.turnIndex++;
+                }
+
+                // All units have acted, start new round
+                this.newRound();
+            }
+
+            newRound() {
+                [...this.playerUnits, ...this.enemyUnits].forEach(u => u.resetTurn());
+                this.calculateTurnOrder();
+                this.addLog('--- Новый раунд ---', 'info');
+                this.startTurn();
+            }
+
+            calculateValidActions() {
+                this.validMoves = [];
+                this.validAttacks = [];
+                
+                if (!this.currentUnit || !this.isPlayerTurn) return;
+
+                const unit = this.currentUnit;
+                const moveRange = unit.speed;
+
+                // Calculate valid moves
+                for (let y = 0; y < this.gridHeight; y++) {
+                    for (let x = 0; x < this.gridWidth; x++) {
+                        const dist = Math.abs(x - unit.x) + Math.abs(y - unit.y);
+                        if (dist <= moveRange && dist > 0 && !this.getUnitAt(x, y)) {
+                            this.validMoves.push({ x, y });
+                        }
+                    }
+                }
+
+                // Calculate valid attacks
+                const enemies = this.enemyUnits.filter(e => e.count > 0);
+                enemies.forEach(enemy => {
+                    // Can attack from current position
+                    if (unit.canAttack(enemy)) {
+                        this.validAttacks.push({ x: enemy.x, y: enemy.y, unit: enemy });
+                    }
+                    // Can attack after moving
+                    this.validMoves.forEach(move => {
+                        const tempDist = Math.abs(move.x - enemy.x) + Math.abs(move.y - enemy.y);
+                        if (tempDist <= unit.range) {
+                            if (!this.validAttacks.find(a => a.x === enemy.x && a.y === enemy.y)) {
+                                this.validAttacks.push({ x: enemy.x, y: enemy.y, unit: enemy });
+                            }
+                        }
+                    });
+                });
+
+                this.renderBattlefield();
+            }
+
+            onCellClick(x, y) {
+                if (!this.isPlayerTurn || this.gameOver) return;
+
+                const clickedUnit = this.getUnitAt(x, y);
+
+                if (this.abilityMode) {
+                    this.executeAbility(x, y);
+                    return;
+                }
+
+                // If clicking on current unit, deselect
+                if (clickedUnit === this.currentUnit) {
+                    this.selectedUnit = null;
+                    this.renderBattlefield();
+                    return;
+                }
+
+                // If clicking on enemy unit that can be attacked
+                if (clickedUnit && !clickedUnit.isPlayer) {
+                    const canAttack = this.validAttacks.find(a => a.x === x && a.y === y);
+                    if (canAttack) {
+                        this.attackUnit(this.currentUnit, clickedUnit);
+                        return;
+                    }
+                }
+
+                // If clicking on valid move position
+                const canMove = this.validMoves.find(m => m.x === x && m.y === y);
+                if (canMove) {
+                    this.moveUnit(this.currentUnit, x, y);
+                    return;
+                }
+            }
+
+            moveUnit(unit, x, y) {
+                unit.x = x;
+                unit.y = y;
+                this.calculateValidActions();
+                
+                // Check if can attack after move
+                const hasAttackTarget = this.validAttacks.length > 0;
+                if (!hasAttackTarget) {
+                    this.endUnitTurn();
+                }
+            }
+
+            attackUnit(attacker, defender, isCounter = false) {
+                const damage = attacker.attack + Math.floor(Math.random() * 5);
+                const result = defender.takeDamage(damage);
+                
+                this.showDamagePopup(defender.x, defender.y, result.damage, 'damage');
+                this.addLog(
+                    `${attacker.name} атакует ${defender.name}: ${result.damage} урона${result.killed > 0 ? `, убито: ${result.killed}` : ''}`,
+                    'damage'
+                );
+
+                // Apply passive abilities
+                this.applyPassiveAbilities(attacker, defender, result);
+
+                // Counterattack
+                if (!isCounter && defender.count > 0 && defender.range >= defender.getDistance(attacker)) {
+                    const canCounter = defender.type === 'griffin' || !defender.hasCounterattacked;
+                    if (canCounter) {
+                        defender.hasCounterattacked = true;
+                        setTimeout(() => {
+                            const counterDamage = Math.floor(defender.attack * 0.5);
+                            const counterResult = attacker.takeDamage(counterDamage);
+                            this.showDamagePopup(attacker.x, attacker.y, counterResult.damage, 'damage');
+                            this.addLog(
+                                `${defender.name} контратакует: ${counterResult.damage} урона`,
+                                'damage'
+                            );
+                            this.updateUI();
+                        }, 300);
+                    }
+                }
+
+                if (!isCounter) {
+                    this.endUnitTurn();
+                }
+                
+                this.updateUI();
+            }
+
+            applyPassiveAbilities(attacker, defender, result) {
+                // Vampire lifesteal
+                if (attacker.type === 'vampire') {
+                    const healAmount = Math.floor(result.damage * 0.3);
+                    const healed = attacker.heal(healAmount);
+                    if (healed > 0) {
+                        this.showDamagePopup(attacker.x, attacker.y, healed, 'heal');
+                        this.addLog(`${attacker.name} восстановил ${healed} HP`, 'heal');
+                    }
+                }
+
+                // Skeleton resurrect
+                if (attacker.type === 'skeleton' && result.killed > 0) {
+                    const resurrectCount = Math.min(2, attacker.maxCount - attacker.count);
+                    if (resurrectCount > 0) {
+                        attacker.count += resurrectCount;
+                        this.addLog(`${attacker.name} восстановил ${resurrectCount} скелетов!`, 'ability');
+                    }
+                }
+
+                // Zombie poison
+                if (attacker.type === 'zombie' && Math.random() < 0.3) {
+                    defender.poison = 3;
+                    this.addLog(`${defender.name} отравлен!`, 'ability');
+                }
+            }
+
+            useAbility() {
+                if (!this.isPlayerTurn || !this.currentUnit || this.gameOver) return;
+                
+                const ability = this.currentUnit.ability;
+                if (ability.currentCooldown > 0) {
+                    this.addLog(`Способность на перезарядке: ${ability.currentCooldown} ходов`, 'info');
+                    return;
+                }
+
+                if (ability.type === 'passive_counter' || ability.type === 'passive_resurrect' || 
+                    ability.type === 'passive_lifesteal' || ability.type === 'passive_poison') {
+                    this.addLog('Это пассивная способность!', 'info');
+                    return;
+                }
+
+                this.abilityMode = true;
+                this.addLog(`Выберите цель для способности: ${ability.name}`, 'ability');
+                this.highlightAbilityTargets();
+            }
+
+            highlightAbilityTargets() {
+                // Highlight valid targets based on ability type
+                this.renderBattlefield();
+            }
+
+            executeAbility(x, y) {
+                const unit = this.currentUnit;
+                const ability = unit.ability;
+                const target = this.getUnitAt(x, y);
+
+                this.abilityMode = false;
+
+                switch (ability.type) {
+                    case 'stun': // Knight
+                        if (target && !target.isPlayer) {
+                            target.isStunned = true;
+                            const damage = Math.floor(unit.attack * 0.5);
+                            target.takeDamage(damage);
+                            this.showDamagePopup(x, y, damage, 'special');
+                            this.addLog(`${unit.name} оглушил ${target.name}!`, 'ability');
+                            ability.currentCooldown = ability.cooldown;
+                            this.endUnitTurn();
+                        }
+                        break;
+
+                    case 'aoe': // Archer
+                        const enemies = this.enemyUnits.filter(e => e.count > 0);
+                        enemies.forEach(enemy => {
+                            const dist = Math.abs(enemy.x - x) + Math.abs(enemy.y - y);
+                            if (dist <= 2) {
+                                const damage = Math.floor(unit.attack * 0.6);
+                                enemy.takeDamage(damage);
+                                this.showDamagePopup(enemy.x, enemy.y, damage, 'special');
+                            }
+                        });
+                        this.addLog(`${unit.name} использовал Залп стрел!`, 'ability');
+                        ability.currentCooldown = ability.cooldown;
+                        this.endUnitTurn();
+                        break;
+
+                    case 'magic': // Mage
+                        if (target && !target.isPlayer) {
+                            const damage = unit.attack * 2;
+                            target.takeDamage(damage, true);
+                            this.showDamagePopup(x, y, damage, 'special');
+                            this.addLog(`${unit.name} использовал Огненный шар на ${target.name}!`, 'ability');
+                            ability.currentCooldown = ability.cooldown;
+                            this.endUnitTurn();
+                        }
+                        break;
+
+                    case 'heal': // Healer
+                        if (target && target.isPlayer) {
+                            const healAmount = 30 * unit.count;
+                            const healed = target.heal(healAmount);
+                            this.showDamagePopup(x, y, healed, 'heal');
+                            this.addLog(`${unit.name} исцелил ${target.name} на ${healed} HP!`, 'heal');
+                            ability.currentCooldown = ability.cooldown;
+                            this.endUnitTurn();
+                        }
+                        break;
+                }
+
+                this.updateUI();
+            }
+
+            wait() {
+                if (!this.isPlayerTurn || !this.currentUnit || this.gameOver) return;
+                
+                // Move to end of turn order
+                const idx = this.turnOrder.indexOf(this.currentUnit);
+                if (idx !== -1) {
+                    this.turnOrder.splice(idx, 1);
+                    this.turnOrder.push(this.currentUnit);
+                }
+                this.addLog(`${this.currentUnit.name} ждёт`, 'info');
+                this.turnIndex--;
+                this.endUnitTurn();
+            }
+
+            defend() {
+                if (!this.isPlayerTurn || !this.currentUnit || this.gameOver) return;
+                
+                this.currentUnit.isDefending = true;
+                this.addLog(`${this.currentUnit.name} занял оборону (+50% защиты)`, 'info');
+                this.endUnitTurn();
+            }
+
+            endUnitTurn() {
+                if (this.currentUnit) {
+                    this.currentUnit.hasActed = true;
+                }
+                this.turnIndex++;
+                this.selectedUnit = null;
+                this.abilityMode = false;
+                
+                setTimeout(() => {
+                    this.startTurn();
+                    this.updateUI();
+                }, 500);
+            }
+
+            aiTurn() {
+                if (this.gameOver || this.isPlayerTurn) return;
+
+                const unit = this.currentUnit;
+                const targets = this.playerUnits.filter(u => u.count > 0);
+                
+                if (targets.length === 0) {
+                    this.endUnitTurn();
+                    return;
+                }
+
+                // Find closest target
+                let bestTarget = null;
+                let bestDist = Infinity;
+                targets.forEach(target => {
+                    const dist = unit.getDistance(target);
+                    if (dist < bestDist) {
+                        bestDist = dist;
+                        bestTarget = target;
+                    }
+                });
+
+                // Try to use ability
+                if (unit.ability.currentCooldown === 0) {
+                    if (this.aiUseAbility(unit, targets)) {
+                        return;
+                    }
+                }
+
+                // Can attack?
+                if (unit.canAttack(bestTarget)) {
+                    this.attackUnit(unit, bestTarget);
+                    return;
+                }
+
+                // Move towards target
+                let bestMove = null;
+                let bestMoveScore = -Infinity;
+
+                for (let y = 0; y < this.gridHeight; y++) {
+                    for (let x = 0; x < this.gridWidth; x++) {
+                        const dist = Math.abs(x - unit.x) + Math.abs(y - unit.y);
+                        if (dist <= unit.speed && dist > 0 && !this.getUnitAt(x, y)) {
+                            const newDist = Math.abs(x - bestTarget.x) + Math.abs(y - bestTarget.y);
+                            const score = -newDist;
+                            if (score > bestMoveScore) {
+                                bestMoveScore = score;
+                                bestMove = { x, y };
+                            }
+                        }
+                    }
+                }
+
+                if (bestMove) {
+                    unit.x = bestMove.x;
+                    unit.y = bestMove.y;
+                    this.addLog(`${unit.name} перемещается`, 'info');
+                    
+                    // Try to attack after move
+                    if (unit.canAttack(bestTarget)) {
+                        setTimeout(() => {
+                            this.attackUnit(unit, bestTarget);
+                        }, 300);
+                        return;
+                    }
+                }
+
+                this.endUnitTurn();
+            }
+
+            aiUseAbility(unit, targets) {
+                const ability = unit.ability;
+
+                switch (ability.type) {
+                    case 'instant_kill': // Lich
+                        const lichTarget = targets.reduce((a, b) => a.count > b.count ? a : b);
+                        if (lichTarget) {
+                            const killCount = Math.min(3, lichTarget.count);
+                            lichTarget.count -= killCount;
+                            this.showDamagePopup(lichTarget.x, lichTarget.y, killCount, 'special');
+                            this.addLog(`${unit.name} использовал Смертельное касание! Убито ${killCount} ${lichTarget.name}!`, 'ability');
+                            ability.currentCooldown = ability.cooldown;
+                            this.endUnitTurn();
+                            return true;
+                        }
+                        break;
+
+                    case 'aoe_fire': // Demon
+                        // Find cluster of enemies
+                        let bestX = 0, bestY = 0, bestCount = 0;
+                        for (let y = 0; y < this.gridHeight; y++) {
+                            for (let x = 0; x < this.gridWidth; x++) {
+                                let count = 0;
+                                targets.forEach(t => {
+                                    if (Math.abs(t.x - x) + Math.abs(t.y - y) <= 2) count++;
+                                });
+                                if (count > bestCount) {
+                                    bestCount = count;
+                                    bestX = x;
+                                    bestY = y;
+                                }
+                            }
+                        }
+                        if (bestCount >= 2) {
+                            targets.forEach(target => {
+                                if (Math.abs(target.x - bestX) + Math.abs(target.y - bestY) <= 2) {
+                                    const damage = Math.floor(unit.attack * 0.8);
+                                    target.takeDamage(damage);
+                                    this.showDamagePopup(target.x, target.y, damage, 'special');
+                                }
+                            });
+                            this.addLog(`${unit.name} использовал Адское пламя!`, 'ability');
+                            ability.currentCooldown = ability.cooldown;
+                            this.endUnitTurn();
+                            return true;
+                        }
+                        break;
+                }
+                return false;
+            }
+
+            getUnitAt(x, y) {
+                const allUnits = [...this.playerUnits, ...this.enemyUnits];
+                return allUnits.find(u => u.x === x && u.y === y && u.count > 0);
+            }
+
+            checkGameOver() {
+                const playerAlive = this.playerUnits.some(u => u.count > 0);
+                const enemyAlive = this.enemyUnits.some(u => u.count > 0);
+
+                if (!playerAlive) {
+                    this.showGameOver(false);
+                    return true;
+                }
+                if (!enemyAlive) {
+                    this.showGameOver(true);
+                    return true;
+                }
+                return false;
+            }
+
+            showGameOver(victory) {
+                this.gameOver = true;
+                const overlay = document.getElementById('gameOverOverlay');
+                const text = document.getElementById('gameOverText');
+                
+                text.textContent = victory ? '🏆 ПОБЕДА! 🏆' : '💀 ПОРАЖЕНИЕ 💀';
+                text.className = 'game-over-text ' + (victory ? 'victory' : 'defeat');
+                overlay.classList.add('visible');
+            }
+
+            showDamagePopup(x, y, amount, type) {
+                const cell = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
+                if (!cell) return;
+
+                const popup = document.createElement('div');
+                popup.className = `damage-popup ${type}`;
+                popup.textContent = type === 'damage' ? `-${amount}` : `+${amount}`;
+                cell.appendChild(popup);
+
+                setTimeout(() => popup.remove(), 1000);
+            }
+
+            addLog(message, type = 'info') {
+                const log = document.getElementById('battleLog');
+                const entry = document.createElement('div');
+                entry.className = `log-entry ${type}`;
+                entry.textContent = message;
+                log.insertBefore(entry, log.firstChild);
+                
+                // Keep only last 50 entries
+                while (log.children.length > 50) {
+                    log.removeChild(log.lastChild);
+                }
+            }
+
+            showTooltip(x, y, event) {
+                const unit = this.getUnitAt(x, y);
+                if (!unit) {
+                    this.hideTooltip();
+                    return;
+                }
+
+                const tooltip = document.getElementById('tooltip');
+                const ability = unit.ability;
+                
+                tooltip.innerHTML = `
+                    <div class="tooltip-header">
+                        <span class="tooltip-icon">${unit.icon}</span>
+                        <span class="tooltip-name">${unit.name}</span>
+                    </div>
+                    <div class="tooltip-stats">
+                        <div class="tooltip-stat"><span>❤️ HP:</span><span>${unit.currentHp}/${unit.maxHp}</span></div>
+                        <div class="tooltip-stat"><span>👥 Кол-во:</span><span>${unit.count}</span></div>
+                        <div class="tooltip-stat"><span>⚔️ Атака:</span><span>${unit.attack}</span></div>
+                        <div class="tooltip-stat"><span>🛡️ Защита:</span><span>${unit.defense}</span></div>
+                        <div class="tooltip-stat"><span>⚡ Скорость:</span><span>${unit.speed}</span></div>
+                        <div class="tooltip-stat"><span>🎯 Дальность:</span><span>${unit.range}</span></div>
+                    </div>
+                    <div class="tooltip-ability">
+                        ✨ ${ability.name}: ${ability.description}
+                        ${ability.currentCooldown > 0 ? `<br>⏱️ Перезарядка: ${ability.currentCooldown}` : ''}
+                    </div>
+                `;
+
+                const rect = event.target.getBoundingClientRect();
+                let left = rect.right + 10;
+                let top = rect.top;
+
+                // Keep tooltip on screen
+                if (left + 280 > window.innerWidth) {
+                    left = rect.left - 290;
+                }
+                if (top + 200 > window.innerHeight) {
+                    top = window.innerHeight - 210;
+                }
+
+                tooltip.style.left = Math.max(10, left) + 'px';
+                tooltip.style.top = Math.max(10, top) + 'px';
+                tooltip.classList.add('visible');
+            }
+
+            hideTooltip() {
+                document.getElementById('tooltip').classList.remove('visible');
+            }
+
+            updateTurnIndicator() {
+                const indicator = document.getElementById('turnIndicator');
+                if (this.currentUnit) {
+                    indicator.textContent = this.isPlayerTurn 
+                        ? `Ваш ход: ${this.currentUnit.icon} ${this.currentUnit.name}`
+                        : `Ход врага: ${this.currentUnit.icon} ${this.currentUnit.name}`;
+                }
+            }
+
+            updateInitiativeBar() {
+                const bar = document.getElementById('initiativeBar');
+                bar.innerHTML = '';
+
+                const activeUnits = this.turnOrder.filter(u => u.count > 0 && !u.hasActed);
+                activeUnits.forEach((unit, index) => {
+                    const div = document.createElement('div');
+                    div.className = `initiative-unit ${unit.isPlayer ? 'player' : 'enemy'} ${unit === this.currentUnit ? 'current' : ''}`;
+                    div.innerHTML = `
+                        ${unit.icon}
+                        <span class="initiative-order">${index + 1}</span>
+                    `;
+                    bar.appendChild(div);
+                });
+            }
+
+            updateAbilityButton() {
+                const btn = document.getElementById('abilityBtn');
+                if (this.currentUnit && this.isPlayerTurn) {
+                    const ability = this.currentUnit.ability;
+                    const isPassive = ['passive_counter', 'passive_resurrect', 'passive_lifesteal', 'passive_poison'].includes(ability.type);
+                    btn.textContent = isPassive 
+                        ? `✨ ${ability.name} (пассив)` 
+                        : `✨ ${ability.name}${ability.currentCooldown > 0 ? ` (${ability.currentCooldown})` : ''}`;
+                    btn.disabled = isPassive || ability.currentCooldown > 0;
+                }
+            }
+
+            renderBattlefield() {
+                const cells = document.querySelectorAll('.cell');
+                cells.forEach(cell => {
+                    const x = parseInt(cell.dataset.x);
+                    const y = parseInt(cell.dataset.y);
+                    
+                    cell.className = 'cell';
+                    cell.innerHTML = '';
+
+                    // Show valid moves
+                    if (this.validMoves.find(m => m.x === x && m.y === y)) {
+                        cell.classList.add('valid-move');
+                    }
+
+                    // Show valid attacks
+                    if (this.validAttacks.find(a => a.x === x && a.y === y)) {
+                        cell.classList.add('valid-attack');
+                    }
+
+                    // Render unit
+                    const unit = this.getUnitAt(x, y);
+                    if (unit) {
+                        const unitDiv = document.createElement('div');
+                        unitDiv.className = `unit ${unit.isPlayer ? 'player-unit' : 'enemy-unit'} ${unit === this.currentUnit ? 'current-turn' : ''}`;
+                        
+                        const hpPercent = (unit.currentHp / unit.maxHp) * 100;
+                        unitDiv.innerHTML = `
+                            <span class="unit-icon">${unit.icon}</span>
+                            <span class="unit-count">${unit.count}</span>
+                            <div class="unit-hp-bar">
+                                <div class="unit-hp-fill" style="width: ${hpPercent}%"></div>
+                            </div>
+                        `;
+                        
+                        cell.appendChild(unitDiv);
+
+                        if (unit === this.currentUnit) {
+                            cell.classList.add('selected');
+                        }
+                    }
+                });
+            }
+
+            updateUI() {
+                this.renderBattlefield();
+                this.updateInitiativeBar();
+                this.updateAbilityButton();
+                this.checkGameOver();
+            }
+
+            restart() {
+                document.getElementById('gameOverOverlay').classList.remove('visible');
+                document.getElementById('battleLog').innerHTML = '';
+                
+                this.playerUnits = [];
+                this.enemyUnits = [];
+                this.selectedUnit = null;
+                this.currentUnit = null;
+                this.turnOrder = [];
+                this.turnIndex = 0;
+                this.isPlayerTurn = true;
+                this.gameOver = false;
+                this.validMoves = [];
+                this.validAttacks = [];
+                this.abilityMode = false;
+
+                this.placeUnits();
+                this.calculateTurnOrder();
+                this.startTurn();
+                this.updateUI();
+                this.addLog('Новая битва началась!', 'info');
+            }
+        }
+
+        // Initialize game
+        let game;
+        window.onload = () => {
+            game = new Game();
+        };
+    </script>
+</body>
+</html>
