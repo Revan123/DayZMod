@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Thief Jump Demo</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #222;
+            color: white;
+            font-family: 'Segoe UI', sans-serif;
+            overflow: hidden; /* Prevent scrolling */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            touch-action: none; /* Disable default touch actions */
+        }
+
+        #game-container {
+            position: relative;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        canvas {
+            display: block;
+            background-color: #333;
+            border: 4px solid #444;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .screen {
+            background: rgba(0, 0, 0, 0.85);
+            padding: 20px 40px;
+            border-radius: 12px;
+            text-align: center;
+            border: 2px solid #ffd700;
+            pointer-events: auto; /* Enable clicks on buttons */
+        }
+
+        h1 { margin: 0 0 10px 0; color: #ffd700; }
+        p { margin: 10px 0; color: #ccc; }
+        
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 1.2rem;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 15px;
+            touch-action: manipulation;
+        }
+        
+        button:active { transform: scale(0.95); }
+
+        .hidden { display: none !important; }
+        
+        #score-display {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-shadow: 2px 2px 0 #000;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div id="score-display">Попытка: 1</div>
+        
+        <div id="ui-layer">
+            <div id="start-screen" class="screen">
+                <h1>Thief Jump</h1>
+                <p>Кликни или Тапни чтобы прыгать</p>
+                <p>Отталкивайся от стен!</p>
+                <p>Избегай пил и доберись до сундука</p>
+                <button id="btn-start">Начать</button>
+            </div>
+
+            <div id="game-over-screen" class="screen hidden">
+                <h1 style="color: #F44336;">Провал!</h1>
+                <p>Ты попался в ловушку</p>
+                <button id="btn-retry">Попробовать снова</button>
+            </div>
+
+            <div id="win-screen" class="screen hidden">
+                <h1 style="color: #4CAF50;">Победа!</h1>
+                <p>Сокровища твои!</p>
+                <button id="btn-next">Ещё раз</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Game Constants
+        const GRAVITY = 0.6;
+        const JUMP_FORCE = -9;
+        const MOVE_SPEED = 4;
+        const WALL_SLIDE_SPEED = 2;
+        const JUMP_WALL_X_FORCE = 5;
+
+        // Setup Canvas
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Fixed game world size (responsive scaling)
+        const GAME_WIDTH = 800;
+        const GAME_HEIGHT = 600;
+
+        // Scaling logic
+        let scale = 1;
+        
+        function resize() {
+            const aspect = GAME_WIDTH / GAME_HEIGHT;
+            let w = window.innerWidth;
+            let h = window.innerHeight;
+            
+            // Limit max size
+            const maxW = Math.min(w, 800); 
+            const maxH = Math.min(h, 600);
+
+            if (w / h > aspect) {
+                // Screen is wider than game
+                scale = Math.min(maxH / GAME_HEIGHT, w / GAME_WIDTH); 
+            } else {
+                // Screen is taller than game
+                scale = Math.min(maxW / GAME_WIDTH, h / GAME_HEIGHT);
+            }
+
+            canvas.width = GAME_WIDTH * scale;
+            canvas.height = GAME_HEIGHT * scale;
+            
+            // Normalize context scaling
+            ctx.setTransform(scale, 0, 0, scale, 0, 0);
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Game State
+        let gameState = 'START'; // START, PLAY, GAMEOVER, WIN
+        let attempt = 1;
+        let particles = [];
+        
+        const player = {
+            x: 100,
+            y: 400,
+            width: 30,
+            height: 30,
+            vx: 0,
+            vy: 0,
+            color: '#4CAF50',
+            onGround: false,
+            onWall: false,
+            wallDir: 0, // -1 left, 1 right
+            dead: false
+        };
+
+        const level = {
+            walls: [],
+            saws: [],
+            goal: { x: 0, y: 0, w: 40, h: 40 }
+        };
+
+        // Input Handling
+        let inputActive = false;
+        
+        function handleInput(e) {
+            if (e.type !== 'keydown') e.preventDefault(); // Prevent double firing on touch devices if mixed
+            
+            if (gameState !== 'PLAY') return;
+            
+            jump();
+        }
+        
+        // Support mouse, touch, and spacebar
+        canvas.addEventListener('mousedown', handleInput);
+        canvas.addEventListener('touchstart', handleInput, {passive: false});
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.code === 'ArrowUp') handleInput(e);
+        });
+
+        function jump() {
+            if (player.dead) return;
+
+            // Ground Jump
+            if (player.onGround) {
+                player.vy = JUMP_FORCE;
+                player.onGround = false;
+                spawnDust(player.x + player.width/2, player.y + player.height);
+                return;
+            }
+
+            // Wall Jump
+            if (player.onWall) {
+                player.vy = JUMP_FORCE;
+                // Kick off wall
+                player.vx = -player.wallDir * MOVE_SPEED; // Initial kick
+                // We actually want to reverse direction permanently for auto-run style
+                // In King of Thieves, you bounce off. 
+                // Let's implement: If on wall, jumping reverses direction.
+                player.onWall = false;
+                spawnDust(player.wallDir === 1 ? player.x + player.width : player.x, player.y + player.height/2);
+            } else {
+                // Double Jump or Air Jump? King of Thieves usually doesn't have air jump unless upgraded.
+                // We'll stick to single jump + wall jump for demo simplicity.
+            }
+        }
+
+        function initLevel() {
+            // Simple Box Level with obstacles
+            level.walls = [
+                // Borders
+                { x: 0, y: 0, w: GAME_WIDTH, h: 40 }, // Ceiling
+                { x: 0, y: GAME_HEIGHT - 40, w: GAME_WIDTH, h: 40 }, // Floor
+                { x: 0, y: 0, w: 40, h: GAME_HEIGHT }, // Left Wall
+                { x: GAME_WIDTH - 40, y: 0, w: 40, h: GAME_HEIGHT }, // Right Wall
+                
+                // Platforms
+                { x: 200, y: 400, w: 40, h: 200 }, // Mid obstacle
+                { x: 400, y: 150, w: 40, h: 250 }, // Top obstacle
+                { x: 600, y: 350, w: 40, h: 250 }, 
+            ];
+
+            // Obstacles (Saws)
+            level.saws = [
+                { x: 320, y: 520, r: 25, speed: 2, path: {x1: 280, x2: 500, axis: 'x'}, angle: 0 },
+                { x: 500, y: 200, r: 25, speed: 3, path: {y1: 100, y2: 300, axis: 'y'}, angle: 0 },
+                { x: 150, y: 200, r: 20, speed: 0, path: null, angle: 0 } // Static
+            ];
+
+            // Goal
+            level.goal = { x: 700, y: 500, w: 50, h: 50 };
+
+            // Reset Player
+            player.x = 80;
+            player.y = 500;
+            player.vx = MOVE_SPEED; // Starts running right
+            player.vy = 0;
+            player.dead = false;
+            player.onGround = false;
+            player.onWall = false;
+            
+            particles = [];
+        }
+
+        function update() {
+            if (gameState !== 'PLAY') return;
+
+            // Physics
+            // Gravity
+            player.vy += GRAVITY;
+            
+            // Limit fall speed (terminal velocity)
+            if (player.vy > 12) player.vy = 12;
+
+            // Apply Velocity
+            player.x += player.vx;
+            player.y += player.vy;
+
+            // Reset flags
+            player.onGround = false;
+            player.onWall = false;
+            player.wallDir = 0;
+
+            // Wall Collisions
+            checkWallCollisions();
+
+            // Saw Updates & Collisions
+            updateSaws();
+
+            // Goal Collision
+            if (rectIntersect(player.x, player.y, player.width, player.height, 
+                             level.goal.x, level.goal.y, level.goal.w, level.goal.h)) {
+                winGame();
+            }
+
+            // Particles
+            updateParticles();
+        }
+
+        function checkWallCollisions() {
+            // Check against all walls
+            for (let w of level.walls) {
+                const dir = colCheck(player, w);
+                
+                if (dir === 'l' || dir === 'r') {
+                    player.vx = 0; // Stop horizontal movement
+                    player.onWall = true;
+                    player.wallDir = (dir === 'l') ? 1 : -1; // If hitting left side of wall, wall is to right (1)
+                    
+                    // Wall Slide Friction
+                    if (player.vy > 0) {
+                        player.vy = Math.min(player.vy, WALL_SLIDE_SPEED);
+                        // Auto-slide off logic? 
+                        // In KoT, you slide down. If you hit floor, you run towards opposite wall.
+                    }
+                    
+                    // IMPORTANT: In auto-runner, hitting a wall usually turns you around immediately OR you stick and wait for jump?
+                    // KoT style: You slide down. If you jump, you bounce off.
+                    // If you touch the ground while hugging wall, you turn around.
+                } else if (dir === 'b') {
+                    player.onGround = true;
+                    player.vy = 0;
+                    
+                    // Bounce mechanics for auto-run
+                    // If we were on a wall and hit ground, we should start running away from the wall
+                    if (player.vx === 0) {
+                        // Determine which way to run based on which wall we are hugging
+                        // Simple logic: if we are stuck (vx=0), try to run.
+                        // We need to know previous direction or wall direction.
+                        // Let's rely on wallDir from previous frame? 
+                        // Simpler: If velocity X is 0, we need to pick a direction.
+                        // But wait, colCheck modifies position.
+                        
+                        // We need state "Facing".
+                    }
+                } else if (dir === 't') {
+                    player.vy = 0; // Bonk head
+                }
+            }
+
+            // Auto-run Logic Correction
+            // If on ground and not moving, move!
+            if (player.onGround && Math.abs(player.vx) < 0.1) {
+                // Determine direction based on where the wall was relative to us
+                // If we were sliding down a wall on our Right, we run Left.
+                if (player.wallDir === 1) { // Wall on right
+                    player.vx = -MOVE_SPEED;
+                } else if (player.wallDir === -1) { // Wall on left
+                    player.vx = MOVE_SPEED;
+                } else {
+                    // Default if stopped in middle (shouldn't happen much)
+                    player.vx = MOVE_SPEED;
+                }
+            }
+            
+            // If flying through air, keep momentum
+             if (!player.onGround && !player.onWall) {
+                 // Maintain direction but ensure speed is constant
+                 if (player.vx > 0) player.vx = MOVE_SPEED;
+                 if (player.vx < 0) player.vx = -MOVE_SPEED;
+             }
+        }
+        
+        // Simple AABB Collision response
+        function colCheck(shapeA, shapeB) {
+            // get the vectors to check against
+            const vX = (shapeA.x + (shapeA.width / 2)) - (shapeB.x + (shapeB.width / 2));
+            const vY = (shapeA.y + (shapeA.height / 2)) - (shapeB.y + (shapeB.height / 2));
+            // add the half widths and half heights of the objects
+            const hWidths = (shapeA.width / 2) + (shapeB.width / 2);
+            const hHeights = (shapeA.height / 2) + (shapeB.height / 2);
+            let colDir = null;
+
+            // if the x and y vector are less than the half width or half height, they we must be inside the object, causing a collision
+            if (Math.abs(vX) < hWidths && Math.abs(vY) < hHeights) {
+                // figures out on which side we are colliding (offset comes into play for tiny adjustments)
+                const oX = hWidths - Math.abs(vX);
+                const oY = hHeights - Math.abs(vY);
+
+                if (oX >= oY) {
+                    if (vY > 0) {
+                        colDir = "t"; // Top of shapeB (Player hit ceiling)
+                        shapeA.y += oY;
+                    } else {
+                        colDir = "b"; // Bottom of shapeB (Player hit floor)
+                        shapeA.y -= oY;
+                    }
+                } else {
+                    if (vX > 0) {
+                        colDir = "l"; // Left of shapeB (Player hit wall on left)
+                        shapeA.x += oX;
+                    } else {
+                        colDir = "r"; // Right of shapeB (Player hit wall on right)
+                        shapeA.x -= oX;
+                    }
+                }
+            }
+            return colDir;
+        }
+
+        function updateSaws() {
+            level.saws.forEach(saw => {
+                // Move Saw
+                saw.angle += 0.2;
+                if (saw.path) {
+                    if (saw.path.axis === 'x') {
+                        saw.x += saw.speed;
+                        if (saw.x > saw.path.x2 || saw.x < saw.path.x1) saw.speed *= -1;
+                    } else {
+                        saw.y += saw.speed;
+                        if (saw.y > saw.path.y2 || saw.y < saw.path.y1) saw.speed *= -1;
+                    }
+                }
+
+                // Check Collision (Circle vs Rect)
+                if (circleRectIntersect(saw.x, saw.y, saw.r, player.x, player.y, player.width, player.height)) {
+                    die();
+                }
+            });
+        }
+
+        function circleRectIntersect(cx, cy, cr, rx, ry, rw, rh) {
+            // Find the closest point to the circle within the rectangle
+            let closestX = Math.max(rx, Math.min(cx, rx + rw));
+            let closestY = Math.max(ry, Math.min(cy, ry + rh));
+
+            // Calculate the distance between the circle's center and this closest point
+            let distanceX = cx - closestX;
+            let distanceY = cy - closestY;
+
+            // If the distance is less than the circle's radius, an intersection occurs
+            let distanceSquared = (distanceX * distanceX) + (distanceY * distanceY);
+            return distanceSquared < (cr * cr);
+        }
+
+        function rectIntersect(x1, y1, w1, h1, x2, y2, w2, h2) {
+            return x2 < x1 + w1 && x2 + w2 > x1 && y2 < y1 + h1 && y2 + h2 > y1;
+        }
+
+        function die() {
+            if (player.dead) return;
+            player.dead = true;
+            
+            // Explosion particles
+            for(let i=0; i<20; i++) {
+                spawnDust(player.x + player.width/2, player.y + player.height/2, true);
+            }
+            
+            setTimeout(() => {
+                setGameState('GAMEOVER');
+            }, 500);
+        }
+
+        function winGame() {
+            setGameState('WIN');
+        }
+
+        function setGameState(state) {
+            gameState = state;
+            document.querySelectorAll('.screen').forEach(el => el.classList.add('hidden'));
+            
+            if (state === 'START') {
+                document.getElementById('start-screen').classList.remove('hidden');
+                initLevel();
+            } else if (state === 'PLAY') {
+                // Just playing
+            } else if (state === 'GAMEOVER') {
+                document.getElementById('game-over-screen').classList.remove('hidden');
+            } else if (state === 'WIN') {
+                document.getElementById('win-screen').classList.remove('hidden');
+            }
+        }
+
+        // Rendering
+        function draw() {
+            // Clear
+            ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+            // Draw Background Grid
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for(let x=0; x<GAME_WIDTH; x+=40) { ctx.moveTo(x,0); ctx.lineTo(x,GAME_HEIGHT); }
+            for(let y=0; y<GAME_HEIGHT; y+=40) { ctx.moveTo(0,y); ctx.lineTo(GAME_WIDTH,y); }
+            ctx.stroke();
+
+            // Draw Walls
+            ctx.fillStyle = '#555';
+            level.walls.forEach(w => {
+                ctx.fillRect(w.x, w.y, w.w, w.h);
+                // Bevel effect
+                ctx.strokeStyle = '#777';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(w.x, w.y, w.w, w.h);
+            });
+
+            // Draw Goal
+            ctx.fillStyle = '#FFD700';
+            const g = level.goal;
+            ctx.fillRect(g.x, g.y, g.w, g.h);
+            ctx.fillStyle = '#FFA000'; // Chest detail
+            ctx.fillRect(g.x+5, g.y+20, g.w-10, 5);
+            
+            // Draw Saws
+            level.saws.forEach(saw => {
+                ctx.save();
+                ctx.translate(saw.x, saw.y);
+                ctx.rotate(saw.angle);
+                
+                ctx.fillStyle = '#ccc';
+                ctx.beginPath();
+                // Saw teeth
+                for(let i=0; i<8; i++) {
+                    ctx.rotate(Math.PI/4);
+                    ctx.lineTo(saw.r + 5, 0);
+                    ctx.lineTo(saw.r - 5, 5);
+                }
+                ctx.fill();
+                
+                // Center
+                ctx.fillStyle = '#888';
+                ctx.beginPath();
+                ctx.arc(0, 0, saw.r * 0.5, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.restore();
+            });
+
+            // Draw Player
+            if (!player.dead) {
+                ctx.fillStyle = player.color;
+                // Simple Squashing animation could go here
+                ctx.fillRect(player.x, player.y, player.width, player.height);
+                
+                // Eyes
+                ctx.fillStyle = 'white';
+                let eyeOff = (player.vx > 0) ? 5 : -5;
+                if (player.onWall) eyeOff = (player.wallDir === 1) ? 5 : -5;
+                
+                ctx.fillRect(player.x + 15 + eyeOff - 4, player.y + 5, 4, 8);
+                ctx.fillRect(player.x + 15 + eyeOff + 2, player.y + 5, 4, 8);
+            }
+
+            // Draw Particles
+            drawParticles();
+        }
+
+        // Particles System
+        function spawnDust(x, y, isExplosion = false) {
+            const count = isExplosion ? 20 : 5;
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * (isExplosion ? 10 : 4),
+                    vy: (Math.random() - 0.5) * (isExplosion ? 10 : 4),
+                    life: 1.0,
+                    color: isExplosion ? '#F44336' : '#fff'
+                });
+            }
+        }
+
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= 0.05;
+                if (p.life <= 0) particles.splice(i, 1);
+            }
+        }
+
+        function drawParticles() {
+            particles.forEach(p => {
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.life;
+                ctx.fillRect(p.x, p.y, 4, 4);
+                ctx.globalAlpha = 1;
+            });
+        }
+
+        // Loop
+        function loop() {
+            requestAnimationFrame(loop);
+            update();
+            draw();
+        }
+
+        // UI Buttons
+        document.getElementById('btn-start').addEventListener('click', () => {
+            setGameState('PLAY');
+            attempt = 1;
+            document.getElementById('score-display').textContent = 'Попытка: ' + attempt;
+        });
+
+        document.getElementById('btn-retry').addEventListener('click', () => {
+            initLevel();
+            setGameState('PLAY');
+            attempt++;
+            document.getElementById('score-display').textContent = 'Попытка: ' + attempt;
+        });
+
+        document.getElementById('btn-next').addEventListener('click', () => {
+            // Technically could reload or go next level
+            initLevel();
+            setGameState('PLAY');
+        });
+
+        // Init
+        initLevel();
+        loop();
+
+    </script>
+</body>
+</html>
